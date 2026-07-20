@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sniff-core"
+version = "0.1.0"
+description = "SNIFF Core Library (Headless)."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    { name = "Peter Laszcz" },
+    { name = "Scott Young" },
+    { name = "Eric Ricardo Carreon Ruiz" },
+]
+
+
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.0",
+    "scipy>=1.11",
+    "scikit-image>=0.22",
+    "astropy>=6.0",
+    "tifffile>=2024.1",
+    "imageio>=2.31",
+    "h5py>=3.10",
+    "psutil>=5.9",
+    "ncrystal>=4.0",
+    "molmass>=2024.5.24",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8.0"]
+
+docs = [
+    "sphinx>=7.2",
+    "sphinx-rtd-theme>=2.0",
+    "myst-parser>=2.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["sni_app.core*"]
+namespaces = true

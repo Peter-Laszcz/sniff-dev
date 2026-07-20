@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sniff-gui"
+version = "0.1.0"
+description = "SNIFF GUI application."
+requires-python = ">=3.10"
+authors = [
+    { name = "Peter Laszcz" },
+    { name = "Scott Young" },
+    { name = "Eric Ricardo Carreon Ruiz" },
+]
+
+dependencies = [
+
+    "sniff-core==0.1.0",
+    "PyQt6>=6.6",
+    "pyqtgraph>=0.13",
+    "superqt>=0.6",
+    "numpy>=1.26",
+    "molmass>=2024.5.24",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8.0", "pytest-qt>=4.4"]
+
+[project.scripts]
+sniff = "sni_app.gui.main_gui:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["sni_app.gui*"]
+namespaces = true
+
+[tool.setuptools.package-data]
+"sni_app.gui" = ["*.png"]
