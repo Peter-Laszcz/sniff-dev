@@ -2,6 +2,7 @@
 Frontend for SNIFF. Comprised of Simulation, Processing, Analysis, and Full Processing tabs
 """
 
+import multiprocessing
 import sys
 from importlib import resources
 from pathlib import Path
@@ -526,6 +527,9 @@ def _asset(name: str) -> Optional[Path]:
 
 
 def main() -> None:
+    # Frozen builds spawn workers by re-running this exe; without this each
+    # worker would relaunch the whole GUI (see core.process.stack_processes).
+    multiprocessing.freeze_support()
     app = QtWidgets.QApplication(sys.argv)
     app.setApplicationName("SNIFF")
     app.setStyle("Fusion")

@@ -916,7 +916,10 @@ def compute_hydrogen_cross_section(
 
 
 def _result_stack(array: np.ndarray, source: Stack, stats: Dict = None) -> Stack:
-    stack = Stack.from_array(array, source.headers, source.stack_meta)
+    array = np.asarray(array)
+    frames = 1 if array.ndim == 2 else int(array.shape[0])
+    headers = source.headers if len(source.headers) == frames else None
+    stack = Stack.from_array(array, headers, source.stack_meta)
     stack.record_analysis_results(stats or {})
     return stack
 

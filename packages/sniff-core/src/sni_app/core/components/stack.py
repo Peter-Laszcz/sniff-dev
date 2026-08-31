@@ -244,10 +244,13 @@ class Stack:
         elif data.ndim == 1:  # profile plot
             data = data[:, None, None]
         n = int(data.shape[0])
-        if headers and len(headers) >= n:
-            raise ValueError("Mismatch between number of headers and number of frames")
-        else:
+        if not headers:
             headers = [fits.Header() for _ in range(n)]
+        elif len(headers) != n:
+            raise ValueError(
+                f"Mismatch between number of headers ({len(headers)}) and "
+                f"number of frames ({n})"
+            )
 
         return cls(
             data=data,

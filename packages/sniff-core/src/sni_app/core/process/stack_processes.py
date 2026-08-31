@@ -539,7 +539,7 @@ def stack_sbkg_correction(
     done = 0
     out = []
     for stack in stacks:
-        headers = list(stack.headers)
+        headers = [header.copy() for header in stack.headers]
         for header in headers:
             header.update({"HISTORY": note})
 
@@ -680,7 +680,8 @@ def stack_overlap_correction(
             for role in OVERLAP_ROLES
         ]
         corrected = overlap_correct_array(np.asarray(stack.data), *arrays)
-        out.append(Stack.from_array(corrected, stack.headers, stack.stack_meta))
+        headers = stack.headers[: corrected.shape[0]]
+        out.append(Stack.from_array(corrected, headers, stack.stack_meta))
         if progress_callback is not None:
             progress_callback(index, len(stacks))
     return record_derivation(
