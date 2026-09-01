@@ -2,7 +2,8 @@
 
 # Installation
 
-Users wishing for a GUI-only experience can download an executable from the Releases section. Alternatively, you can follow these steps:
+Users wishing for a GUI-only experience can download an executable [here](https://github.com/Peter-Laszcz/sniff-dev/tags).
+ Alternatively, for users wishing to engage with the API, you can follow these steps:
 
  - Clone the repository (or download the ZIP).
  - Navigate to the packages folder, and enter your environment.
