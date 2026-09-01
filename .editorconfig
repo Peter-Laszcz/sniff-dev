@@ -1,0 +1,23 @@
+# https://editorconfig.org
+# PyCharm honours this file, so it keeps the whole team's editors consistent.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.py]
+indent_style = space
+indent_size = 4
+max_line_length = 88
+
+[*.{yml,yaml,rst,md}]
+indent_style = space
+indent_size = 2
+
+# Trailing whitespace is a hard line break in Markdown, but this project does
+# not use them, and stray trailing spaces silently break MyST toctree entries.
+[*.md]
+trim_trailing_whitespace = true

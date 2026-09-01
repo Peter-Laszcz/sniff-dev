@@ -198,10 +198,13 @@ class StackWorker(QtCore.QThread):
 
     Signals
     -------
-    progress(int, int, str)  : forwarded from the job's progress callback;
-                               delivered queued on the GUI thread.
-    result_ready(object)     : the job's return value, on success.
-    failed(str)              : the exception message, on failure.
+    progress(int, int, str)
+        Forwarded from the job's progress callback; delivered queued on the
+        GUI thread.
+    result_ready(object)
+        The job's return value, on success.
+    failed(str)
+        The exception message, on failure.
 
     QThread.finished runs after either outcome and is the place
     to re-enable controls and schedule deleteLater.
@@ -233,7 +236,8 @@ class JobRunnerMixin:
     """
     Runs one StackWorker job at a time on behalf of a panel, holding
     the start/progress/failure/cleanup handling every job-running panel
-    shares.  Mixed into QWidget where appropriate, i.e.:
+    shares.  Mixed into QWidget where appropriate, i.e.::
+
         class StackLoader(JobRunnerMixin, QtWidgets.QWidget):
     """
 

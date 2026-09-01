@@ -66,9 +66,13 @@ def energies(wavelength_a: np.ndarray) -> np.ndarray:
 
 
 WAVELENGTH_MIN_A = float(wavelengths(ENERGY_MAX_EV))
+"""
+Shortest wavelength of the default range, in Angstroms.
+"""
+
 WAVELENGTH_MAX_A = float(wavelengths(ENERGY_MIN_EV))
 """
-Default wavelength range in Angstroms.
+Longest wavelength of the default range, in Angstroms.
 """
 
 

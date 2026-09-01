@@ -23,6 +23,10 @@ from sni_app.core.components.stack import (
 )
 
 BARNS_PER_CM2 = 1e24
+"""
+Barns per square centimetre, converting between microscopic cross sections
+(barns) and macroscopic attenuation coefficients (cm^-1).
+"""
 
 JANIS_CATALOGUE: Dict[str, Tuple[polynomial.Polynomial, Tuple[float, float]]] = {
     "C": (
