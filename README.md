@@ -24,4 +24,4 @@ Users wishing for a GUI-only experience can download an executable [here](https:
  - Clone the repository (or download the ZIP).
  - Navigate to the packages folder, and enter your environment.
  - Run: `pip install ./sniff-core` then `pip install ./sniff-gui` (in that order. Skip `sniff-gui` for an API-only experience).
- - To run the GUI, now invoke Python to run `main_gui.py` which is found within the `sniff-gui` package.
+ - To run the GUI, enter `sniff` into your terminal. Alternatively, invoke Python to run `main_gui.py` which is found within the `sniff-gui` package.
