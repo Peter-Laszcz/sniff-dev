@@ -15,5 +15,4 @@ Users wishing for a GUI-only experience can download an executable [here](https:
  # What is SNIFF?
 SNIFF is a software framework developed to support the complete data handling workflow associated with spectroscopic neutron imaging. It brings together pre-experiment modelling, multidimensional image processing, wavelength-resolved analysis, and workflow automation within a single environment. The framework can be accessed interactively (SNIFF GUI) or via Python API (SNIFF Core).
 
-# Spectroscopic Neutron Imaging Full-Processing Framework (SNIFF)
 
