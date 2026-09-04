@@ -33,7 +33,7 @@ MAX_TRANSLATION_FRACTION = 0.05
 """Largest transformation shift as a fraction of the shortest frame side."""
 
 
-def squeeze_to_2d(frame: np.ndarray) -> np.ndarray:
+def _squeeze_to_2d(frame: np.ndarray) -> np.ndarray:
     """
     Squeeze array without dropping to scalar (1D).
 
@@ -56,7 +56,7 @@ def squeeze_to_2d(frame: np.ndarray) -> np.ndarray:
     return frame
 
 
-def frame_to_2d_float32(frame: np.ndarray) -> np.ndarray:
+def _frame_to_2d_float32(frame: np.ndarray) -> np.ndarray:
     """
     Cast an image array to a 2D float32 array. Dimensionality of colour images is reduced by averaging the channels.
 
@@ -89,7 +89,7 @@ def frame_to_2d_float32(frame: np.ndarray) -> np.ndarray:
     raise ValueError(f"Unsupported frame shape: {frame.shape}.")
 
 
-def windowed_mean(frame: np.ndarray, window_half: int) -> np.ndarray:
+def _windowed_mean(frame: np.ndarray, window_half: int) -> np.ndarray:
     """
     Arithmetic frame mean using sliding window.
 
@@ -130,7 +130,7 @@ def windowed_mean(frame: np.ndarray, window_half: int) -> np.ndarray:
     return window_sum / np.outer(row_counts, col_counts)
 
 
-def normalise_frame(
+def _normalise_frame(
     frame: np.ndarray,
     beam_frame_sum: np.ndarray,
     window_half: int,
@@ -169,7 +169,7 @@ def normalise_frame(
         raise ValueError(f"Input frame too small for {side}x{side} window")
 
     thresh = np.float32(1e-7)
-    smoothed = windowed_mean(beam_frame_sum, window_half).astype(np.float32)
+    smoothed = _windowed_mean(beam_frame_sum, window_half).astype(np.float32)
     smoothed = np.where(smoothed > 0, smoothed, thresh)
 
     normalised = (ob_frame_count * frame / smoothed) * np.float32(
@@ -184,7 +184,7 @@ Fewest black bodies a background can be fitted through.
 """
 
 
-class BlackBodyFit:
+class _BlackBodyFit:
     """
     Fits the spatial background of a frame from a black-body mask.
 
@@ -266,7 +266,7 @@ class BlackBodyFit:
         return background.reshape(self.shape).astype(np.float32)
 
 
-def robust_percentile_limits(
+def _robust_percentile_limits(
     frame: np.ndarray, p_lo: float = 1.0, p_hi: float = 99.0
 ) -> Tuple[float, float]:
     """
@@ -308,7 +308,7 @@ def robust_percentile_limits(
     return lo, hi
 
 
-def extract_features(
+def _extract_features(
     image: np.ndarray, n_keypoints: int = 200
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
@@ -366,7 +366,7 @@ def _reject_implausible_transform(
         )
 
 
-def register_frame_to_features(
+def _register_frame_to_features(
     frame: np.ndarray,
     ref_keypoints: np.ndarray,
     ref_descriptors: np.ndarray,
@@ -397,7 +397,7 @@ def register_frame_to_features(
     ValueError
         If transform is unreliable (too few feature matches or inliers) or physically implausible.
     """
-    frame_keypoints, frame_descriptors = extract_features(frame, feat_keypoints)
+    frame_keypoints, frame_descriptors = _extract_features(frame, feat_keypoints)
 
     # Match features
     matches = match_descriptors(ref_descriptors, frame_descriptors, cross_check=True)
@@ -435,7 +435,7 @@ def register_frame_to_features(
     return transform.warp(frame, model_robust.inverse)
 
 
-def image_registration(
+def _image_registration(
     frame: np.ndarray, reference: np.ndarray, feat_keypoints: int = 200
 ) -> np.ndarray:
     """
@@ -461,7 +461,7 @@ def image_registration(
         If a registration transform could not be reliably estimated (too few
         feature matches or too few inliers).
     """
-    ref_keypoints, ref_descriptors = extract_features(reference, feat_keypoints)
-    return register_frame_to_features(
+    ref_keypoints, ref_descriptors = _extract_features(reference, feat_keypoints)
+    return _register_frame_to_features(
         frame, ref_keypoints, ref_descriptors, feat_keypoints
     )

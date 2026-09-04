@@ -22,7 +22,7 @@ from sni_app.core.process.roi_processes import (
     t_cross_section,
 )
 from sni_app.core.process.stack_processes import (
-    OVERLAP_ROLES,
+    _OVERLAP_ROLES,
     stack_avg,
     stack_bin_frames,
     stack_join,
@@ -296,15 +296,15 @@ def active_stacks(stacks: list[Stack]) -> list[Stack]:
 
 
 
-RunFn = Callable[[list[Stack], dict[str, Stack], dict], list[Stack]]
+_RunFn = Callable[[list[Stack], dict[str, Stack], dict], list[Stack]]
 """Inputs: (input stacks, auxiliary stack dict, parameter dict), Outputs: (output stacks)"""
 
 @dataclass(frozen=True)
 class ProcessSpec:
-    """One replayable process. RunFn is defined and explained above."""
+    """One replayable process. _RunFn is defined and explained above."""
 
     mode: str
-    run: RunFn
+    run: _RunFn
     aux_roles: tuple = field(default_factory=tuple)
 
 
@@ -317,7 +317,7 @@ def _run_overlap(inputs, aux, params) -> list[Stack]:
     # "(internal)" means the stack's stored metadata was used, i.e. no external parameters were supplied.
     overrides = {
         role: ("" if params.get(role) in (None, "(internal)") else params[role])
-        for role in OVERLAP_ROLES
+        for role in _OVERLAP_ROLES
     }
     return stack_overlap_correction(inputs, **overrides)
 
@@ -451,7 +451,7 @@ def entry_point_uuids(graph: WorkflowGraph) -> list[str]:
 
 def default_entry_map(graph: WorkflowGraph) -> dict[str, object]:
     """
-    Map each entry-point id to its current backing stack, if one exists.
+    Return dict mapping each entry-point id to its current backing stack, if one exists.
     Provides default for workflows that happen to have original stacks.
     """
     return {

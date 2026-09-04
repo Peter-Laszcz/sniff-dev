@@ -14,14 +14,14 @@ import pandas as pd
 
 import sni_app.core.util.logger as logger
 from sni_app.core.io.image import ALLOWED_EXTENSIONS
-from sni_app.core.util.scrubbing import weighting_func
+from sni_app.core.util.scrubbing import _weighting_func
 
 if TYPE_CHECKING:  # Stack sits above this module; see discover_and_load
     from sni_app.core.components.stack import Stack
 
-log = logger.setup_logger()
+_log = logger.setup_logger()
 
-RUN_META_SUFFIXES = {
+_RUN_META_SUFFIXES = {
     "shutter_count": "_ShutterCount.txt",
     "shutter_times": "_ShutterTimes.txt",
     "spectra": "_Spectra.txt",
@@ -53,14 +53,14 @@ def scan_experiment_txts(stack_dir: Path) -> Dict[str, np.ndarray]:
     found: Dict[str, np.ndarray] = {}
     if not stack_dir.is_dir():
         return found
-    for role, suffix in RUN_META_SUFFIXES.items():
+    for role, suffix in _RUN_META_SUFFIXES.items():
         matches = sorted(stack_dir.glob(f"*{suffix}"))
         if not matches:
             continue
         try:
             found[role] = pd.read_csv(matches[0], sep="\t", header=None).to_numpy()
         except Exception as exc:
-            log.warning(f"Could not read experiment metadata file {matches[0]}: {exc}")
+            _log.warning(f"Could not read experiment metadata file {matches[0]}: {exc}")
     return found
 
 
@@ -102,7 +102,7 @@ def resolve_run_meta_array(
     raise ValueError("No file selected and no internal correction data.")
 
 
-def safe_file_stem(name: str) -> str:
+def _safe_file_stem(name: str) -> str:
     """
     Sanitise an arbitrary display name into a filesystem-safe stem.
 
@@ -158,7 +158,7 @@ def export_stacks(
     errors: List[str] = []
     for idx, (name, stack) in enumerate(pairs, 1):
         file_name = (
-            f"{stem}_{safe_file_stem(name)}{ext}" if total > 1 else f"{stem}{ext}"
+            f"{stem}_{_safe_file_stem(name)}{ext}" if total > 1 else f"{stem}{ext}"
         )
         try:
             stack.save_stack(file_name, base_dir, overwrite)
@@ -284,7 +284,7 @@ def discover_and_load(
     """
     # deferred: both live above this module and import it in turn
     from sni_app.core.components.stack import Stack
-    from sni_app.core.util.scrubbing import keep_key_weights
+    from sni_app.core.util.scrubbing import _keep_key_weights
 
     stack_dirs = discover_stack_dirs(src_dir)
     frame_counts = {path: len(list_stack_frames(path)) for path in stack_dirs}
@@ -292,9 +292,9 @@ def discover_and_load(
     frames_done = 0
 
     try:
-        weights_data_frame = weighting_func(src_dir)
+        weights_data_frame = _weighting_func(src_dir)
     except Exception as exc:
-        log.warning(f"Could not build weights dataframe for {src_dir}: {exc}")
+        _log.warning(f"Could not build weights dataframe for {src_dir}: {exc}")
         weights_data_frame = None
 
     stacks: List[Stack] = []
@@ -311,7 +311,7 @@ def discover_and_load(
             stack.stack_meta["weights_data_frame"] = weights_data_frame
             stacks.append(stack)
         except Exception as exc:  # Skip folders that hold no readable stack
-            log.warning(f"Could not read stack folder {path}: {exc}")
+            _log.warning(f"Could not read stack folder {path}: {exc}")
             continue
         finally:
             frames_done += frame_counts[path]
@@ -319,7 +319,7 @@ def discover_and_load(
                 progress_callback(frames_done, total_frames)
 
     if proc_folders:
-        stacks = keep_key_weights(stacks, weights_data_frame, proc_folders)
+        stacks = _keep_key_weights(stacks, weights_data_frame, proc_folders)
 
     param_dict = {}
     return stacks, param_dict

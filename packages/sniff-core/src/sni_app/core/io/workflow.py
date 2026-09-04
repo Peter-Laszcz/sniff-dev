@@ -34,7 +34,7 @@ from typing import Optional, Sequence
 from sni_app.core.components.workflow import WorkflowGraph, WorkflowNode
 from sni_app.core.io.project import _decode_meta_value, _encode_meta_value
 
-WORKFLOW_FORMAT = "SNIFF_WORKFLOW"
+_WORKFLOW_FORMAT = "SNIFF_WORKFLOW"
 """
 Checks we are working with the right format of JSON
 """
@@ -56,7 +56,7 @@ def _encode_params(params: Optional[dict], process: str) -> dict:
     return encoded
 
 
-def workflow_to_dict(graph: WorkflowGraph, name: str = "") -> dict:
+def _workflow_to_dict(graph: WorkflowGraph, name: str = "") -> dict:
     """
     Render graph as a serialisable dictionary for writing.
 
@@ -90,20 +90,20 @@ def workflow_to_dict(graph: WorkflowGraph, name: str = "") -> dict:
             }
         )
     return {
-        "format": WORKFLOW_FORMAT,
+        "format": _WORKFLOW_FORMAT,
         "name": str(name or graph.name or ""),
         "nodes": nodes,
     }
 
 
-def workflow_from_dict(payload: dict) -> WorkflowGraph:
+def _workflow_from_dict(payload: dict) -> WorkflowGraph:
     """
     Rebuild a WorkflowGraph from a workflow dictionary.
 
     Parameters
     ----------
     payload : dict
-        A dict of the format that workflow_to_dict produces.
+        A dict of the format that _workflow_to_dict produces.
 
     Returns
     -------
@@ -118,7 +118,7 @@ def workflow_from_dict(payload: dict) -> WorkflowGraph:
         raise ValueError("Not a SNIFF workflow file (expected a JSON object).")
 
     fmt = payload.get("format")
-    if fmt != WORKFLOW_FORMAT:
+    if fmt != _WORKFLOW_FORMAT:
         raise ValueError(f"Not a SNIFF workflow file (format={fmt!r}).")
 
     raw_nodes = payload.get("nodes")
@@ -196,7 +196,7 @@ def save_workflow(path, graph: WorkflowGraph, name: str = "") -> Path:
     path = Path(path)
     if not path.suffix:
         path = path.with_suffix(".json")
-    payload = workflow_to_dict(graph, name)
+    payload = _workflow_to_dict(graph, name)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return path
@@ -226,7 +226,7 @@ def load_workflow(path) -> WorkflowGraph:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         raise ValueError(f"{path.name} is not valid JSON: {exc}") from exc
-    return workflow_from_dict(payload)
+    return _workflow_from_dict(payload)
 
 
 def save_workflows(path, graphs: Sequence[WorkflowGraph], name: str = "") -> list:

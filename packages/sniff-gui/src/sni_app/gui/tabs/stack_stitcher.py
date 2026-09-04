@@ -11,7 +11,7 @@ from PyQt6 import QtCore, QtWidgets
 from sni_app.gui.shared import BTN_STYLE_RED, BTN_STYLE_RUN, popup
 
 from sni_app.core.components.stack import Stack
-from sni_app.core.process.img_processes import robust_percentile_limits
+from sni_app.core.process.img_processes import _robust_percentile_limits
 from sni_app.core.process.roi_processes import clamp_roi_to_stack, roi_profile
 from sni_app.core.process.stack_processes import stack_stitching
 from sni_app.core.util import logger
@@ -375,7 +375,7 @@ class StitcherDialog(QtWidgets.QDialog):
             stack = getattr(self, view)
             n_slices = int(stack.data.shape[0])
             self.views[view]["slider"].setMaximum(max(0, n_slices - 1))
-            pix_val_min, pix_val_max = robust_percentile_limits(stack.data)
+            pix_val_min, pix_val_max = _robust_percentile_limits(stack.data)
             self.views[view]["levels"] = (pix_val_min, pix_val_max)
             self._set_display_spins(view, pix_val_min, pix_val_max, 1.0)
             self._show_frame(view, 0)
@@ -530,7 +530,7 @@ class StitcherDialog(QtWidgets.QDialog):
         stack = getattr(self, view)
         idx = self._current_frame.get(view, 0)
         idx = max(0, min(idx, stack.data.shape[0] - 1))
-        pix_val_min, pix_val_max = robust_percentile_limits(stack.data[idx])
+        pix_val_min, pix_val_max = _robust_percentile_limits(stack.data[idx])
         gamma = float(self.views[view]["gamma_spin"].value())
         self._set_display_spins(view, pix_val_min, pix_val_max, gamma)
         self._apply_levels(view)

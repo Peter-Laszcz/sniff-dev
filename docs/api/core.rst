@@ -3,94 +3,30 @@ sniff-core API
 
 .. currentmodule:: sni_app.core
 
-The headless library. Everything below is re-exported at the package root, so
-the supported import style is::
+The headless library. Supported import style is::
 
     from sni_app.core import Stack, stack_normalisation
 
-Most work happens at the :class:`Stack` level: a stack carries its frame data,
-its per-frame metadata, and the derivation history that lets a workflow be
-replayed.
+A user interfaces with experiment data at the :class:`Stack` level. This class carries acquisition frames,
+frame metadata, experiment metadata, and processing history for replaying workflows.
+Names not listed here are internal helpers.
 
-Stacks
-------
+
+Classes
+-------
 
 .. autosummary::
    :toctree: generated/
    :nosignatures:
 
    Stack
-   record_derivation
-
-Projects
---------
-
-.. autosummary::
-   :toctree: generated/
-   :nosignatures:
-
    Project
-   save_project
-   load_project
-
-Workflows
----------
-
-.. autosummary::
-   :toctree: generated/
-   :nosignatures:
-
    WorkflowGraph
    WorkflowNode
    ProcessSpec
-   ~components.workflow.PROCESS_REGISTRY
-   get_process_spec
-   replay_workflow
-   active_stacks
-   entry_point_uuids
-   default_entry_map
-   workflow_mode
-   aux_roles_of
-   sanitise_params
-   save_workflow
-   save_workflows
-   load_workflow
-   workflow_to_dict
-   workflow_from_dict
-   ~io.workflow.WORKFLOW_FORMAT
 
-Image I/O
----------
-
-.. autosummary::
-   :toctree: generated/
-   :nosignatures:
-
-   get_img
-   get_imgs_parallel
-   write_img
-   ~io.image.ALLOWED_EXTENSIONS
-   ~io.image.FITS_EXTENSIONS
-   ~io.image.TIFF_EXTENSIONS
-
-Stack discovery and export
---------------------------
-
-.. autosummary::
-   :toctree: generated/
-   :nosignatures:
-
-   discover_and_load
-   discover_stack_dirs
-   list_stack_frames
-   scan_experiment_txts
-   resolve_run_meta_array
-   ~io.stack.RUN_META_SUFFIXES
-   export_stacks
-   safe_file_stem
-
-Stack processing
-----------------
+Preprocessing
+-------------
 
 .. autosummary::
    :toctree: generated/
@@ -108,38 +44,54 @@ Stack processing
    stack_sum
    stack_join
    stack_stitching
-   separate_energies
-   compute_shutter_indices
-   overlap_correct_array
-   normalise_stack_array
-   ~process.stack_processes.OVERLAP_ROLES
 
-Image processing and registration
----------------------------------
+Workflows
+---------
 
 .. autosummary::
    :toctree: generated/
    :nosignatures:
 
-   normalise_frame
-   windowed_mean
-   frame_to_2d_float32
-   squeeze_to_2d
-   robust_percentile_limits
-   extract_features
-   register_frame_to_features
-   image_registration
-   BlackBodyFit
-   ~process.img_processes.MIN_BLACK_BODIES
-   ~process.img_processes.MIN_MATCH_COUNT
-   ~process.img_processes.MIN_INLIER_COUNT
-   ~process.img_processes.MAX_SCALE_DEVIATION
-   ~process.img_processes.MAX_ROTATION_DEG
-   ~process.img_processes.MAX_TRANSLATION_FRACTION
-   ~process.img_processes.REGISTRATION_MIN_SAMPLES
+   get_process_spec
+   replay_workflow
+   save_workflow
+   save_workflows
+   load_workflow
+   active_stacks
+   entry_point_uuids
+   default_entry_map
+   workflow_mode
+   aux_roles_of
+   sanitise_params
+   record_derivation
 
-ROIs, attenuation and cross sections
-------------------------------------
+I/O: Project
+------------
+
+.. autosummary::
+   :toctree: generated/
+   :nosignatures:
+
+   save_project
+   load_project
+
+I/O: Stack
+----------
+
+.. autosummary::
+   :toctree: generated/
+   :nosignatures:
+
+   discover_and_load
+   discover_stack_dirs
+   list_stack_frames
+   scan_experiment_txts
+   resolve_run_meta_array
+   compute_shutter_indices
+   export_stacks
+
+ROI manipulation
+----------------
 
 .. autosummary::
    :toctree: generated/
@@ -150,26 +102,20 @@ ROIs, attenuation and cross sections
    roi_profile
    clamp_roi_to_stack
    compute_roi_stats
+
+Analysis
+--------
+
+.. autosummary::
+   :toctree: generated/
+   :nosignatures:
+
    relative_attenuation
    sum_of_logs_relative_attenuation
-   compute_relative_attenuation
-   compute_relative_attenuation_from_stacks
-   compute_relative_attenuation_from_bands
-   compute_sum_of_logs_relatt_exact
    atten_coefficient
-   compute_atten_coefficient_from_stacks
-   compute_atten_coeff_stack
    t_cross_section
    h_cross_section
-   compute_total_micro_cross_section
-   compute_hydrogen_cross_section
-   element_number_densities
    stack_wavelengths
-   block_bin_mean
-   apply_prefilter
-   frame_means
-   ~process.roi_processes.JANIS_CATALOGUE
-   ~process.roi_processes.BARNS_PER_CM2
 
 Simulation
 ----------
@@ -182,12 +128,9 @@ Simulation
    energy_grid
    wavelengths
    energies
-   ~process.afga.SPEC_BUILDING_BLOCKS
-   ~process.afga.WAVELENGTH_MIN_A
-   ~process.afga.WAVELENGTH_MAX_A
 
-Utilities
----------
+Logging
+-------
 
 .. autosummary::
    :toctree: generated/
@@ -196,11 +139,52 @@ Utilities
    setup_logger
    log_dir
    default_log_file
+
+Utilities
+---------
+
+.. autosummary::
+   :toctree: generated/
+   :nosignatures:
+
    extract_run_stats
    frame_wavelengths
-   first_shutter_count
-   weighting_func
-   merge_weights
-   keep_dir
-   keep_key_weights
    txt_timestamps
+
+Data Constants
+--------------
+
+.. autosummary::
+   :toctree: generated/
+   :nosignatures:
+
+   ~process.roi_processes.JANIS_CATALOGUE
+   ~process.roi_processes.BARNS_PER_CM2
+   ~process.afga.SPEC_BUILDING_BLOCKS
+   ~io.image.ALLOWED_EXTENSIONS
+   ~components.workflow.PROCESS_REGISTRY
+
+Simulation range constants
+--------------------------
+
+.. autosummary::
+   :toctree: generated/
+   :nosignatures:
+
+   ~process.afga.WAVELENGTH_MIN_A
+   ~process.afga.WAVELENGTH_MAX_A
+
+Image processing constraint constants
+-------------------------------------
+
+.. autosummary::
+   :toctree: generated/
+   :nosignatures:
+
+   ~process.img_processes.MIN_BLACK_BODIES
+   ~process.img_processes.MIN_MATCH_COUNT
+   ~process.img_processes.MIN_INLIER_COUNT
+   ~process.img_processes.MAX_SCALE_DEVIATION
+   ~process.img_processes.MAX_ROTATION_DEG
+   ~process.img_processes.MAX_TRANSLATION_FRACTION
+   ~process.img_processes.REGISTRATION_MIN_SAMPLES

@@ -6,7 +6,7 @@ import numpy as np
 from PyQt6 import QtCore, QtGui, QtWidgets
 from sni_app.core.components.stack import Stack
 from sni_app.core.io.stack import export_stacks
-from sni_app.core.util.scrubbing import merge_weights
+from sni_app.core.util.scrubbing import _merge_weights
 from sni_app.gui.shared import (
     BTN_STYLE_RED,
     JobRunnerMixin,
@@ -172,7 +172,7 @@ class StackStore(QtCore.QObject):
             meta["selected_for_processing"] = bool(selected)
         else:
             meta.setdefault("selected_for_processing", False)
-        self._weights_df = merge_weights(
+        self._weights_df = _merge_weights(
             self._weights_df, meta.get("weights_data_frame")
         )
         self._stacks.append(stack)

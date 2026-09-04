@@ -1,6 +1,9 @@
 """
 Import with: from sni_app.core import ...
 API provided by __all__. User should work at the Stack level.
+
+Internal helpers need to be explicitly listed by their private name for import,
+but the core functionality shouldn't necessitate this.
 """
 
 from sni_app.core.components.stack import Stack, record_derivation
@@ -18,33 +21,17 @@ from sni_app.core.components.workflow import (
     sanitise_params,
     workflow_mode,
 )
-from sni_app.core.io.image import (
-    ALLOWED_EXTENSIONS,
-    FITS_EXTENSIONS,
-    TIFF_EXTENSIONS,
-    get_img,
-    get_imgs_parallel,
-    write_img,
-)
+from sni_app.core.io.image import ALLOWED_EXTENSIONS
 from sni_app.core.io.project import Project, load_project, save_project
 from sni_app.core.io.stack import (
-    RUN_META_SUFFIXES,
     discover_and_load,
     discover_stack_dirs,
     export_stacks,
     list_stack_frames,
     resolve_run_meta_array,
-    safe_file_stem,
     scan_experiment_txts,
 )
-from sni_app.core.io.workflow import (
-    WORKFLOW_FORMAT,
-    load_workflow,
-    save_workflow,
-    save_workflows,
-    workflow_from_dict,
-    workflow_to_dict,
-)
+from sni_app.core.io.workflow import load_workflow, save_workflow, save_workflows
 from sni_app.core.process.afga import (
     SPEC_BUILDING_BLOCKS,
     WAVELENGTH_MAX_A,
@@ -58,38 +45,17 @@ from sni_app.core.process.img_processes import (
     MAX_ROTATION_DEG,
     MAX_SCALE_DEVIATION,
     MAX_TRANSLATION_FRACTION,
+    MIN_BLACK_BODIES,
     MIN_INLIER_COUNT,
     MIN_MATCH_COUNT,
     REGISTRATION_MIN_SAMPLES,
-    MIN_BLACK_BODIES,
-    BlackBodyFit,
-    extract_features,
-    frame_to_2d_float32,
-    image_registration,
-    normalise_frame,
-    register_frame_to_features,
-    robust_percentile_limits,
-    squeeze_to_2d,
-    windowed_mean,
 )
 from sni_app.core.process.roi_processes import (
     BARNS_PER_CM2,
     JANIS_CATALOGUE,
-    apply_prefilter,
     atten_coefficient,
-    block_bin_mean,
     clamp_roi_to_stack,
-    compute_atten_coeff_stack,
-    compute_atten_coefficient_from_stacks,
-    compute_hydrogen_cross_section,
-    compute_relative_attenuation,
-    compute_relative_attenuation_from_bands,
-    compute_relative_attenuation_from_stacks,
     compute_roi_stats,
-    compute_sum_of_logs_relatt_exact,
-    compute_total_micro_cross_section,
-    element_number_densities,
-    frame_means,
     h_cross_section,
     relative_attenuation,
     roi_profile,
@@ -100,11 +66,7 @@ from sni_app.core.process.roi_processes import (
     t_cross_section,
 )
 from sni_app.core.process.stack_processes import (
-    OVERLAP_ROLES,
     compute_shutter_indices,
-    normalise_stack_array,
-    overlap_correct_array,
-    separate_energies,
     stack_avg,
     stack_bin_frames,
     stack_join,
@@ -119,45 +81,25 @@ from sni_app.core.process.stack_processes import (
     stack_sum,
 )
 from sni_app.core.util.logger import default_log_file, log_dir, setup_logger
-from sni_app.core.util.run_stats import (
-    extract_run_stats,
-    first_shutter_count,
-    frame_wavelengths,
-)
-from sni_app.core.util.scrubbing import (
-    keep_dir,
-    keep_key_weights,
-    merge_weights,
-    txt_timestamps,
-    weighting_func,
-)
+from sni_app.core.util.run_stats import extract_run_stats, frame_wavelengths
+from sni_app.core.util.scrubbing import txt_timestamps
 
 __all__ = [
     "Stack",
     "ALLOWED_EXTENSIONS",
-    "FITS_EXTENSIONS",
-    "TIFF_EXTENSIONS",
     "record_derivation",
     "discover_and_load",
     "discover_stack_dirs",
     "list_stack_frames",
     "scan_experiment_txts",
     "resolve_run_meta_array",
-    "RUN_META_SUFFIXES",
     "export_stacks",
-    "safe_file_stem",
     "save_project",
     "load_project",
     "Project",
     "save_workflow",
     "save_workflows",
     "load_workflow",
-    "workflow_to_dict",
-    "workflow_from_dict",
-    "WORKFLOW_FORMAT",
-    "get_img",
-    "get_imgs_parallel",
-    "write_img",
     "stack_overlap_correction",
     "stack_normalisation",
     "stack_scrubbing",
@@ -170,11 +112,7 @@ __all__ = [
     "stack_sum",
     "stack_join",
     "stack_stitching",
-    "separate_energies",
     "compute_shutter_indices",
-    "overlap_correct_array",
-    "normalise_stack_array",
-    "OVERLAP_ROLES",
     "roi_to_stack",
     "relative_attenuation",
     "sum_of_logs_relative_attenuation",
@@ -184,32 +122,11 @@ __all__ = [
     "clamp_roi_to_stack",
     "roi_profile",
     "compute_roi_stats",
-    "compute_relative_attenuation",
-    "compute_relative_attenuation_from_stacks",
-    "compute_relative_attenuation_from_bands",
-    "compute_sum_of_logs_relatt_exact",
-    "compute_atten_coefficient_from_stacks",
-    "compute_atten_coeff_stack",
-    "compute_total_micro_cross_section",
-    "compute_hydrogen_cross_section",
-    "element_number_densities",
     "stack_wavelengths",
     "JANIS_CATALOGUE",
     "BARNS_PER_CM2",
-    "block_bin_mean",
-    "apply_prefilter",
-    "frame_means",
     "roi_to_mask",
-    "normalise_frame",
-    "windowed_mean",
-    "frame_to_2d_float32",
-    "squeeze_to_2d",
-    "robust_percentile_limits",
-    "BlackBodyFit",
     "MIN_BLACK_BODIES",
-    "extract_features",
-    "register_frame_to_features",
-    "image_registration",
     "MIN_MATCH_COUNT",
     "MIN_INLIER_COUNT",
     "MAX_SCALE_DEVIATION",
@@ -238,12 +155,7 @@ __all__ = [
     "setup_logger",
     "log_dir",
     "default_log_file",
-    "weighting_func",
-    "merge_weights",
     "extract_run_stats",
     "frame_wavelengths",
-    "first_shutter_count",
-    "keep_dir",
-    "keep_key_weights",
     "txt_timestamps",
 ]

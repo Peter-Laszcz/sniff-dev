@@ -12,19 +12,19 @@ import numpy as np
 import tifffile
 from astropy.io import fits
 
-from sni_app.core.process.img_processes import frame_to_2d_float32, squeeze_to_2d
+from sni_app.core.process.img_processes import _frame_to_2d_float32, _squeeze_to_2d
 
 ALLOWED_EXTENSIONS = {".tif", ".tiff", ".png", ".jpg", ".jpeg", ".fits"}
 """Every image suffix a stack can be built from."""
 
-TIFF_EXTENSIONS = {".tif", ".tiff"}
+_TIFF_EXTENSIONS = {".tif", ".tiff"}
 """Needs its own reader (tifffile)."""
 
-FITS_EXTENSIONS = {".fits"}
+_FITS_EXTENSIONS = {".fits"}
 """Preferred for experiment metadata."""
 
 
-def get_img(path: Path) -> tuple[np.ndarray, fits.Header]:
+def _get_img(path: Path) -> tuple[np.ndarray, fits.Header]:
     """
     Load an image file with FITS header (populated, if derivable).
     API Note: images are flipped upon reading for FITS consistency.
@@ -42,22 +42,22 @@ def get_img(path: Path) -> tuple[np.ndarray, fits.Header]:
     _, ext = os.path.splitext(path)
     header = fits.Header()
 
-    if ext.lower() in FITS_EXTENSIONS:
+    if ext.lower() in _FITS_EXTENSIONS:
         with fits.open(str(path)) as hdu_list:
             frame = hdu_list[0].data
             header = hdu_list[0].header
-    elif ext.lower() in TIFF_EXTENSIONS:
+    elif ext.lower() in _TIFF_EXTENSIONS:
         frame = tifffile.imread(str(path))
     else:  # .png, .jpeg need flipping to match FITS format
         frame = np.flip(
             np.asarray(iio.imread(path)), axis=0
         )
-    frame = frame_to_2d_float32(squeeze_to_2d(np.asarray(frame)))
+    frame = _frame_to_2d_float32(_squeeze_to_2d(np.asarray(frame)))
 
     return frame, header
 
 
-def get_imgs_parallel(paths: list[Path], n_threads: int = 4):
+def _get_imgs_parallel(paths: list[Path], n_threads: int = 4):
     """
     Load image files in parallel.
 
@@ -76,10 +76,10 @@ def get_imgs_parallel(paths: list[Path], n_threads: int = 4):
     """
     workers = max(1, min(n_threads, os.cpu_count() or 1, len(paths)))
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        yield from pool.map(lambda p: get_img(p), paths)
+        yield from pool.map(lambda p: _get_img(p), paths)
 
 
-def write_img(
+def _write_img(
     img_tuple,
     file_name,
     base_dir: Path,
@@ -115,10 +115,10 @@ def write_img(
 
     if not overwrite and os.path.exists(dst_path):
         return False  # skipped if already exists and overwrite is off
-    if ext in FITS_EXTENSIONS:
+    if ext in _FITS_EXTENSIONS:
         hdu = fits.PrimaryHDU(img, header=header)
         hdu.writeto(dst_path, overwrite=overwrite)
-    elif ext in TIFF_EXTENSIONS:
+    elif ext in _TIFF_EXTENSIONS:
         if img.ndim == 2:
             img = img[None, :, :]
         tifffile.imwrite(str(dst_path), img)

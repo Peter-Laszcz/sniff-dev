@@ -202,7 +202,7 @@ def roi_to_mask(frame: np.ndarray, roi: Tuple[int, int, int, int]) -> np.ndarray
     return vals
 
 
-def block_bin_mean(frame: np.ndarray, factor: int) -> np.ndarray:
+def _block_bin_mean(frame: np.ndarray, factor: int) -> np.ndarray:
     """
     Spatially down-bin an image using a square kernel of specified width.
     Edges are cropped to fit bins.
@@ -232,7 +232,7 @@ def block_bin_mean(frame: np.ndarray, factor: int) -> np.ndarray:
     return arr.reshape(h2 // f, f, w2 // f, f).mean(axis=(1, 3), dtype=np.float32)
 
 
-def apply_prefilter(
+def _apply_prefilter(
     frame: np.ndarray,
     enabled: bool,
     mode: str,
@@ -287,7 +287,7 @@ def apply_prefilter(
     return arr, "None"
 
 
-def frame_means(stack: Stack) -> np.ndarray:
+def _frame_means(stack: Stack) -> np.ndarray:
     """
     Reduce a stack to one value per frame by nanmean over each frame.
 
@@ -382,7 +382,7 @@ def _relatt_stats(
     }
 
 
-def compute_sum_of_logs_relatt_exact(
+def _compute_sum_of_logs_relatt_exact(
     stack: Stack,
     sw_range: tuple[int, int],
     lw_range: tuple[int, int],
@@ -413,7 +413,7 @@ def compute_sum_of_logs_relatt_exact(
     bin_factor : int
         Spatial block-binning factor applied to the summed maps.
     filter_mode : str
-        Pre-filter mode passed to :func:`apply_prefilter`.
+        Pre-filter mode passed to :func:`_apply_prefilter`.
     filter_enabled : bool
         Whether pre-filtering is applied.
     median_size : int
@@ -444,21 +444,21 @@ def compute_sum_of_logs_relatt_exact(
 
     sw_count = np.count_nonzero(np.isfinite(sw_log), axis=0)
     lw_count = np.count_nonzero(np.isfinite(lw_log), axis=0)
-    sw_log_sum = block_bin_mean(sw_log_sum, factor=bin_factor)
-    lw_log_sum = block_bin_mean(lw_log_sum, factor=bin_factor)
-    sw_count = block_bin_mean(sw_count.astype(np.float32), factor=bin_factor)
-    lw_count = block_bin_mean(lw_count.astype(np.float32), factor=bin_factor)
+    sw_log_sum = _block_bin_mean(sw_log_sum, factor=bin_factor)
+    lw_log_sum = _block_bin_mean(lw_log_sum, factor=bin_factor)
+    sw_count = _block_bin_mean(sw_count.astype(np.float32), factor=bin_factor)
+    lw_count = _block_bin_mean(lw_count.astype(np.float32), factor=bin_factor)
 
-    sw_log_sum, _ = apply_prefilter(
+    sw_log_sum, _ = _apply_prefilter(
         sw_log_sum, filter_enabled, filter_mode, median_size, gauss_sigma
     )
-    lw_log_sum, _ = apply_prefilter(
+    lw_log_sum, _ = _apply_prefilter(
         lw_log_sum, filter_enabled, filter_mode, median_size, gauss_sigma
     )
-    sw_count, _ = apply_prefilter(
+    sw_count, _ = _apply_prefilter(
         sw_count, filter_enabled, filter_mode, median_size, gauss_sigma
     )
-    lw_count, _ = apply_prefilter(
+    lw_count, _ = _apply_prefilter(
         lw_count, filter_enabled, filter_mode, median_size, gauss_sigma
     )
 
@@ -473,12 +473,12 @@ def compute_sum_of_logs_relatt_exact(
     rel[valid] = (lw_log_sum[valid] / sw_log_sum[valid]).astype(np.float32, copy=False)
 
     stats = _relatt_stats(
-        sw_log_sum, sw_count, lw_count, rel, eps, float(np.nanmean(frame_means(stack)))
+        sw_log_sum, sw_count, lw_count, rel, eps, float(np.nanmean(_frame_means(stack)))
     )
     return rel, stats
 
 
-def compute_relative_attenuation(
+def _compute_relative_attenuation(
     sw_img: np.ndarray,
     lw_img: np.ndarray,
     eps: float,
@@ -540,7 +540,7 @@ def compute_relative_attenuation(
     return rel, stats
 
 
-def compute_relative_attenuation_from_stacks(
+def _compute_relative_attenuation_from_stacks(
     sw_stack: Stack,
     lw_stack: Stack,
     eps: float,
@@ -549,7 +549,7 @@ def compute_relative_attenuation_from_stacks(
     Relative attenuation directly from two stacks.
 
     Each stack is reduced to a 2-D image by nanmean over its frames, then
-    passed to compute_relative_attenuation.
+    passed to _compute_relative_attenuation.
 
     Parameters
     ----------
@@ -563,15 +563,15 @@ def compute_relative_attenuation_from_stacks(
     Returns
     -------
     Tuple[np.ndarray, Dict[str, float]]
-        As for compute_relative_attenuation.
+        As for _compute_relative_attenuation.
     """
     sw_img = np.nanmean(np.asarray(sw_stack.data, dtype=np.float32), axis=0)
     lw_img = np.nanmean(np.asarray(lw_stack.data, dtype=np.float32), axis=0)
-    both = np.concatenate([frame_means(sw_stack), frame_means(lw_stack)])
-    return compute_relative_attenuation(sw_img, lw_img, eps, float(np.nanmean(both)))
+    both = np.concatenate([_frame_means(sw_stack), _frame_means(lw_stack)])
+    return _compute_relative_attenuation(sw_img, lw_img, eps, float(np.nanmean(both)))
 
 
-def compute_relative_attenuation_from_bands(
+def _compute_relative_attenuation_from_bands(
     stack: Stack,
     sw_range: Tuple[int, int],
     lw_range: Tuple[int, int],
@@ -592,19 +592,19 @@ def compute_relative_attenuation_from_bands(
     Returns
     -------
     Tuple[np.ndarray, Dict[str, float]]
-        From compute_relative_attenuation.
+        From _compute_relative_attenuation.
     """
     data = np.asarray(stack.data, dtype=np.float32)
     sw0, sw1 = sw_range
     lw0, lw1 = lw_range
     sw_img = np.nanmean(data[sw0:sw1, :, :], axis=0)
     lw_img = np.nanmean(data[lw0:lw1, :, :], axis=0)
-    return compute_relative_attenuation(
-        sw_img, lw_img, eps, float(np.nanmean(frame_means(stack)))
+    return _compute_relative_attenuation(
+        sw_img, lw_img, eps, float(np.nanmean(_frame_means(stack)))
     )
 
 
-def compute_atten_coefficient_from_stacks(
+def _compute_atten_coefficient_from_stacks(
     stack: Stack, empty_holder_stack: Stack, d_cm: float
 ) -> np.ndarray:
     """
@@ -612,7 +612,7 @@ def compute_atten_coefficient_from_stacks(
 
     Both sides are reduced to one value per frame by nanmean before the
     division, so the result is a spectrum rather than an image. Result is
-    passed to compute_atten_coeff_stack.
+    passed to _compute_atten_coeff_stack.
 
     Parameters
     ----------
@@ -634,10 +634,10 @@ def compute_atten_coefficient_from_stacks(
     ValueError
         If the frame counts differ or d_cm <= 0.
     """
-    return compute_atten_coeff_stack(stack, frame_means(empty_holder_stack), d_cm)
+    return _compute_atten_coeff_stack(stack, _frame_means(empty_holder_stack), d_cm)
 
 
-def compute_atten_coeff_stack(
+def _compute_atten_coeff_stack(
     stack: Stack, empty_holder_values: np.ndarray, d_cm: float
 ) -> np.ndarray:
     """
@@ -678,7 +678,7 @@ def compute_atten_coeff_stack(
     if d_cm <= 0:
         raise ValueError("d must be > 0")
 
-    means = frame_means(stack)
+    means = _frame_means(stack)
     out = np.full((z, 1, 1), np.nan, dtype=np.float32)
     with np.errstate(divide="ignore", invalid="ignore"):
         t = means / mt
@@ -736,7 +736,7 @@ def stack_wavelengths(stack: Stack) -> np.ndarray:
     return wavelengths[:n_frames]
 
 
-def element_number_densities(
+def _element_number_densities(
     compounds: Sequence[str],
     densities: Sequence[float],
     ratio: Sequence[float] = (1.0,),
@@ -808,7 +808,7 @@ def element_number_densities(
     return number_densities
 
 
-def compute_total_micro_cross_section(
+def _compute_total_micro_cross_section(
     stack: Stack, molar_mass: float, density: float, d_cm: float
 ) -> np.ndarray:
     """
@@ -848,7 +848,7 @@ def compute_total_micro_cross_section(
     if d_cm <= 0:
         raise ValueError("d must be > 0")
 
-    transmission = frame_means(stack)
+    transmission = _frame_means(stack)
     out = np.full((transmission.size, 1, 1), np.nan, dtype=np.float32)
     valid = np.isfinite(transmission) & (transmission > 0)
     with np.errstate(divide="ignore", invalid="ignore"):
@@ -861,7 +861,7 @@ def compute_total_micro_cross_section(
     return out
 
 
-def compute_hydrogen_cross_section(
+def _compute_hydrogen_cross_section(
     atten_coeff: np.ndarray,
     wavelengths: np.ndarray,
     number_densities: Dict[str, float],
@@ -877,7 +877,7 @@ def compute_hydrogen_cross_section(
     wavelengths : np.ndarray
         Wavelength of each frame, in angstroms.
     number_densities : Dict[str, float]
-        Number density per element symbol, in atoms per cm^3, as returned by element_number_densities.
+        Number density per element symbol, in atoms per cm^3, as returned by _element_number_densities.
 
     Returns
     -------
@@ -977,7 +977,7 @@ def relative_attenuation(
 ) -> List[Stack]:
     """
     Relative attenuation of a stack's short- and long-wavelength bands.
-    Stack-level version of compute_relative_attenuation_from_bands.
+    Stack-level version of _compute_relative_attenuation_from_bands.
 
     Parameters
     ----------
@@ -996,7 +996,7 @@ def relative_attenuation(
         A single-element list holding the relative-attenuation map, with the
         computation's diagnostics attached as its analysis results.
     """
-    array, stats = compute_relative_attenuation_from_bands(
+    array, stats = _compute_relative_attenuation_from_bands(
         stack, tuple(sw_range), tuple(lw_range), float(eps)
     )
     return record_derivation(
@@ -1026,7 +1026,7 @@ def sum_of_logs_relative_attenuation(
 ) -> List[Stack]:
     """
     Sum-of-logs relative attenuation of a stack's two wavelength bands.
-    Stack level version of compute_sum_of_logs_relatt_exact.
+    Stack level version of _compute_sum_of_logs_relatt_exact.
 
     Returns
     -------
@@ -1034,7 +1034,7 @@ def sum_of_logs_relative_attenuation(
         A single-element list holding the relative-attenuation map, with the
         computation's diagnostics attached as its analysis results.
     """
-    array, stats = compute_sum_of_logs_relatt_exact(
+    array, stats = _compute_sum_of_logs_relatt_exact(
         stack,
         tuple(sw_range),
         tuple(lw_range),
@@ -1069,7 +1069,7 @@ def atten_coefficient(
     """
     Macroscopic cross-section spectrum from transmission data and an empty
     sample holder stack.
-    Stack version of compute_atten_coefficient_from_stacks.
+    Stack version of _compute_atten_coefficient_from_stacks.
 
     Both the stack and the empty sample holder are reduced to one value per
     frame by nanmean, so the output holds a single coefficient per frame rather
@@ -1093,7 +1093,7 @@ def atten_coefficient(
         A single-element list holding the coefficient spectrum, shaped
         (z, 1, 1).
     """
-    array = compute_atten_coefficient_from_stacks(
+    array = _compute_atten_coefficient_from_stacks(
         stack, empty_holder_stack, float(d_cm)
     )
     return record_derivation(
@@ -1114,7 +1114,7 @@ def t_cross_section(
 ) -> List[Stack]:
     """
     Total microscopic cross-section spectrum of a sample from its transmission.
-    Stack version of compute_total_micro_cross_section.
+    Stack version of _compute_total_micro_cross_section.
 
     Parameters
     ----------
@@ -1135,7 +1135,7 @@ def t_cross_section(
         A single-element list holding the cross-section spectrum, shaped
         (z, 1, 1).
     """
-    array = compute_total_micro_cross_section(
+    array = _compute_total_micro_cross_section(
         stack, float(molar_mass), float(density), float(d_cm)
     )
     return record_derivation(
@@ -1195,18 +1195,18 @@ def h_cross_section(
     ------
     ValueError
         If the mixture is not describable (see
-        element_number_densities), holds no hydrogen, or the sample
+        _element_number_densities), holds no hydrogen, or the sample
         carries no per-frame wavelengths.
     """
     compounds = [str(c) for c in compounds]
     densities = [float(v) for v in densities]
     ratio = [float(v) for v in ratio]
 
-    number_densities = element_number_densities(
+    number_densities = _element_number_densities(
         compounds, densities, ratio, bool(by_volume)
     )
     coefficient = atten_coefficient(stack, empty_holder_stack, float(d_cm))[0]
-    array = compute_hydrogen_cross_section(
+    array = _compute_hydrogen_cross_section(
         coefficient.data, stack_wavelengths(coefficient), number_densities
     )
     return record_derivation(

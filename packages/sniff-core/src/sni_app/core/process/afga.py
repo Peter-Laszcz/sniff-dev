@@ -8,9 +8,9 @@ from typing import Tuple
 import NCrystal as NC
 import numpy as np
 
-ENERGY_MIN_EV = 0.000818
-ENERGY_MAX_EV = 0.32725
-ENERGY_POINTS = 10000
+_ENERGY_MIN_EV = 0.000818
+_ENERGY_MAX_EV = 0.32725
+_ENERGY_POINTS = 10000
 
 SPEC_BUILDING_BLOCKS: Tuple[str, ...] = (
     "CH3",
@@ -31,9 +31,9 @@ prefixed with a multiplier, e.g. "2xCH3+CHali".
 
 
 def energy_grid(
-    points: int = ENERGY_POINTS,
-    energy_min: float = ENERGY_MIN_EV,
-    energy_max: float = ENERGY_MAX_EV,
+    points: int = _ENERGY_POINTS,
+    energy_min: float = _ENERGY_MIN_EV,
+    energy_max: float = _ENERGY_MAX_EV,
 ) -> np.ndarray:
     """
     Return the energy grid in eV.
@@ -50,27 +50,27 @@ def energy_grid(
     return np.geomspace(energy_min, energy_max, points)
 
 
-DE_BROGLIE_A_SQRT_MEV = 9.045 #De Broglie constant
+_DE_BROGLIE_A_SQRT_MEV = 9.045 #De Broglie constant
 
 
 def wavelengths(energy_ev: np.ndarray) -> np.ndarray:
     """Convert neutron kinetic energy (eV) to wavelength (angstroms)."""
     energy_mev = np.asarray(energy_ev, dtype=float) * 1000.0
-    return DE_BROGLIE_A_SQRT_MEV / np.sqrt(energy_mev)
+    return _DE_BROGLIE_A_SQRT_MEV / np.sqrt(energy_mev)
 
 
 def energies(wavelength_a: np.ndarray) -> np.ndarray:
     """Convert neutron wavelength (angstroms) to kinetic energy (eV)."""
-    energy_mev = (DE_BROGLIE_A_SQRT_MEV / np.asarray(wavelength_a, dtype=float)) ** 2
+    energy_mev = (_DE_BROGLIE_A_SQRT_MEV / np.asarray(wavelength_a, dtype=float)) ** 2
     return energy_mev / 1000.0
 
 
-WAVELENGTH_MIN_A = float(wavelengths(ENERGY_MAX_EV))
+WAVELENGTH_MIN_A = float(wavelengths(_ENERGY_MAX_EV))
 """
 Shortest wavelength of the default range, in Angstroms.
 """
 
-WAVELENGTH_MAX_A = float(wavelengths(ENERGY_MIN_EV))
+WAVELENGTH_MAX_A = float(wavelengths(_ENERGY_MIN_EV))
 """
 Longest wavelength of the default range, in Angstroms.
 """
@@ -85,7 +85,7 @@ def process_compound(
     temperature: float,
     wavelength_min: float = WAVELENGTH_MIN_A,
     wavelength_max: float = WAVELENGTH_MAX_A,
-    points: int = ENERGY_POINTS,
+    points: int = _ENERGY_POINTS,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Calculates AFGA plots for a given compound.

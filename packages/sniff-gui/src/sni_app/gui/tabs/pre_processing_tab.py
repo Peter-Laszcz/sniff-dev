@@ -35,7 +35,7 @@ from sni_app.core.components.stack import Stack
 from sni_app.core.io.stack import discover_and_load
 from sni_app.core.process.roi_processes import roi_to_stack
 from sni_app.core.process.stack_processes import (
-    OVERLAP_ROLES,
+    _OVERLAP_ROLES,
     stack_avg,
     stack_bin_frames,
     stack_join,
@@ -48,7 +48,7 @@ from sni_app.core.process.stack_processes import (
     stack_sum,
 )
 from sni_app.core.util.run_stats import (
-    first_shutter_count,
+    _first_shutter_count,
 )
 
 
@@ -299,13 +299,13 @@ class FunctionRunner(QtWidgets.QWidget):
 
         open_beam = self._widgets["open_beam"].currentData()
         ob_count = (
-            first_shutter_count(open_beam.overlap_data())
+            _first_shutter_count(open_beam.overlap_data())
             if open_beam is not None
             else None
         )
         experiment_count = None
         for stack in self._selected:
-            experiment_count = first_shutter_count(stack.overlap_data())
+            experiment_count = _first_shutter_count(stack.overlap_data())
             if experiment_count:
                 break
 
@@ -573,7 +573,7 @@ class FunctionRunner(QtWidgets.QWidget):
 
     def _job_overlap(self, selected: List[Stack]):
 
-        overrides = {role: self._widgets[role].text().strip() for role in OVERLAP_ROLES}
+        overrides = {role: self._widgets[role].text().strip() for role in _OVERLAP_ROLES}
         return lambda p: stack_overlap_correction(
             selected,
             progress_callback=self._reporter(p, "Overlap Correction"),

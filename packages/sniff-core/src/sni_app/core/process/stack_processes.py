@@ -23,15 +23,15 @@ from sni_app.core.components.stack import (
 )
 from sni_app.core.io.stack import resolve_run_meta_array
 from sni_app.core.process.img_processes import (
-    BlackBodyFit,
-    extract_features,
-    normalise_frame,
-    register_frame_to_features,
+    _BlackBodyFit,
+    _extract_features,
+    _normalise_frame,
+    _register_frame_to_features,
 )
 
 _log = logging.getLogger("SNIFF_Log")
 
-OVERLAP_ROLES = ("shutter_count", "shutter_times", "spectra")
+_OVERLAP_ROLES = ("shutter_count", "shutter_times", "spectra")
 """
 Roles of the experiment run tables consumed by the overlap correction, in the
 order compute_shutter_indices expects them.
@@ -191,7 +191,7 @@ def stack_sum(stacks: list[Stack], **kwargs) -> List[Stack]:
     )
 
 
-def separate_energies(stack, he_slice, le_slice):
+def _separate_energies(stack, he_slice, le_slice):
     """
     Collapse a stack into a two-frame high-energy / low-energy stack.
     Averages energy bands using nanmean and median header.
@@ -299,7 +299,7 @@ def stack_bin_frames(
     out = []
     for stack in stacks:
         if he_le:
-            out.append(separate_energies(stack, he_slice=he_le[1], le_slice=he_le[2]))
+            out.append(_separate_energies(stack, he_slice=he_le[1], le_slice=he_le[2]))
             continue
         num_bins = (len(stack.headers) - start_img) // bin_factor
         if num_bins < 1:
@@ -522,7 +522,7 @@ def stack_sbkg_correction(
         mask = mask[0]
 
     # The mask is the same for every frame, so the fit is prepared once.
-    fit = BlackBodyFit(mask)
+    fit = _BlackBodyFit(mask)
     note = f"SBKG correction: {len(fit)} black bodies"
 
     # Shapes are checked up front: a mismatch on the last stack should not cost
@@ -595,7 +595,7 @@ def stack_referencing(stacks: List[Stack], ref: np.ndarray) -> List[Stack]:
     return out
 
 
-def overlap_correct_array(
+def _overlap_correct_array(
     data: np.ndarray,
     shutter_count: np.ndarray,
     shutter_times: np.ndarray,
@@ -677,9 +677,9 @@ def stack_overlap_correction(
     for index, stack in enumerate(stacks, 1):
         arrays = [
             resolve_run_meta_array(stack.stack_meta, role, overrides[role])
-            for role in OVERLAP_ROLES
+            for role in _OVERLAP_ROLES
         ]
-        corrected = overlap_correct_array(np.asarray(stack.data), *arrays)
+        corrected = _overlap_correct_array(np.asarray(stack.data), *arrays)
         headers = stack.headers[: corrected.shape[0]]
         out.append(Stack.from_array(corrected, headers, stack.stack_meta))
         if progress_callback is not None:
@@ -746,7 +746,7 @@ def compute_shutter_indices(
     return start_indices, end_indices, counts
 
 
-def normalise_stack_array(
+def _normalise_stack_array(
     original_stack: Stack,
     open_beam: Stack,
     window_half: int = 5,
@@ -796,7 +796,7 @@ def normalise_stack_array(
             else open_beam_stack[start : end + 1].sum(axis=0)
         )
         frame_count = end - start + 1
-        output[index] = normalise_frame(
+        output[index] = _normalise_frame(
             stack[index], open_beam_sum, window_half, frame_count, scale
         )
 
@@ -841,7 +841,7 @@ def stack_normalisation(
     """
     out = []
     for index, stack in enumerate(stacks, 1):
-        normalised = normalise_stack_array(
+        normalised = _normalise_stack_array(
             stack, open_beam, window_half, sum_neighbourhood, scale
         )
         out.append(Stack.from_array(normalised, stack.headers, stack.stack_meta))
@@ -916,7 +916,7 @@ def _register_frame_safe(
         (registered or original frame, error message or None).
     """
     try:
-        registered = register_frame_to_features(
+        registered = _register_frame_to_features(
             frame, ref_keypoints, ref_descriptors, feat_keypoints
         )
         return registered, None
@@ -968,7 +968,7 @@ def stack_registration(
         )
 
     # Extract keypoints
-    ref_keypoints, ref_descriptors = extract_features(ref, keypoints)
+    ref_keypoints, ref_descriptors = _extract_features(ref, keypoints)
     worker = partial(
         _register_frame_safe,
         ref_keypoints=ref_keypoints,

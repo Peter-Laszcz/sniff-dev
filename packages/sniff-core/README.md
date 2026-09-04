@@ -30,6 +30,9 @@ Most work happens at the `Stack` level. A stack carries its frame data,
 per-frame headers, whole-stack metadata, and the derivation history that lets a
 sequence of processes be replayed against new inputs.
 
+Internal private helpers are unsupported and may change without notice. See the
+`sniff-core` API page for the full list of supported names.
+
 ## Documentation
 
 Full API documentation: https://peter-laszcz.github.io/sniff-dev/

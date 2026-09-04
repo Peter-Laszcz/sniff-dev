@@ -74,7 +74,7 @@ def extract_run_stats(dir: Path) -> dict[str, np.ndarray | None]:
     }
 
 
-def first_shutter_count(
+def _first_shutter_count(
     overlap_data: Optional[Mapping[str, np.ndarray]],
 ) -> float | None:
     """

@@ -14,11 +14,11 @@ import pandas as pd
 if TYPE_CHECKING:  # Stack sits above this module; annotation only
     from sni_app.core.components.stack import Stack
 
-WEIGHTS_COLUMNS = ["Folder", "w1", "w2", "OB1", "OB2"]
-"""Columns of the weights table weighting_func returns."""
+_WEIGHTS_COLUMNS = ["Folder", "w1", "w2", "OB1", "OB2"]
+"""Columns of the weights table _weighting_func returns."""
 
 
-def find_nearest_lower_value(key, sorted_list):
+def _find_nearest_lower_value(key, sorted_list):
     """
     Return the largest value in a list that is less than or equal to key, or smallest element.
 
@@ -38,7 +38,7 @@ def find_nearest_lower_value(key, sorted_list):
     return max(i for i in sorted_list if i <= key)
 
 
-def find_nearest_upper_value(key, sorted_list):
+def _find_nearest_upper_value(key, sorted_list):
     """
     Return the smallest value in list that is greater than or equal to key, or largest element.
 
@@ -58,7 +58,7 @@ def find_nearest_upper_value(key, sorted_list):
     return min(i for i in sorted_list if i >= key)
 
 
-def merge_weights(existing, incoming):
+def _merge_weights(existing, incoming):
     """
     Merge two scrubbing-weights dataframes, keeping the newest duplicate rows.
 
@@ -107,7 +107,7 @@ def _ob_folder_names(ob_folders: Optional[Union[str, Path, Iterable]]) -> List[s
     return [folder.name for folder in _as_path_list(ob_folders)]
 
 
-def weighting_func(
+def _weighting_func(
     src: Path, ob_folders: Optional[Union[str, Path, Iterable]] = None
 ) -> pd.DataFrame:
     """
@@ -148,14 +148,14 @@ def weighting_func(
     OB_df = df[is_ob]
 
     if OB_df.empty:
-        return pd.DataFrame(columns=WEIGHTS_COLUMNS)
+        return pd.DataFrame(columns=_WEIGHTS_COLUMNS)
 
     ob_times = OB_df["Modification (s)"].to_list()
 
     for i in df.index:
         t = df.at[i, "Modification (s)"]
-        low = find_nearest_lower_value(t, ob_times)
-        high = find_nearest_upper_value(t, ob_times)
+        low = _find_nearest_lower_value(t, ob_times)
+        high = _find_nearest_upper_value(t, ob_times)
         if low == high:
             df.at[i, "w1"] = 1
             df.at[i, "w2"] = 0
@@ -165,10 +165,10 @@ def weighting_func(
         df.at[i, "OB1"] = OB_df[OB_df["Modification (s)"] == low]["Folder"].values[0]
         df.at[i, "OB2"] = OB_df[OB_df["Modification (s)"] == high]["Folder"].values[0]
 
-    return df[WEIGHTS_COLUMNS]
+    return df[_WEIGHTS_COLUMNS]
 
 
-def keep_dir(stacks: List[Stack], dirs: List[Path]) -> List[Stack]:
+def _keep_dir(stacks: List[Stack], dirs: List[Path]) -> List[Stack]:
     """
     Filter a list of stacks down to those originating from given directories.
 
@@ -192,7 +192,7 @@ def keep_dir(stacks: List[Stack], dirs: List[Path]) -> List[Stack]:
     return out
 
 
-def keep_key_weights(
+def _keep_key_weights(
     stacks: List[Stack],
     weights_df: Optional[pd.DataFrame],
     keep_folder: Optional[Union[str, Path, Iterable]],
@@ -205,7 +205,7 @@ def keep_key_weights(
     stacks : List[Stack]
         Stacks to filter.
     weights_df : pandas.DataFrame | None
-        Scrubbing weights, as returned by :func:`weighting_func`.
+        Scrubbing weights, as returned by :func:`_weighting_func`.
     keep_folder : str | Path | list | None
         Folder(s) requested for processing, by path. None is treated as an
         empty selection.
@@ -220,12 +220,12 @@ def keep_key_weights(
         return []
 
     if weights_df is None or getattr(weights_df, "empty", True):  # no weights
-        return keep_dir(stacks, keep_paths)
+        return _keep_dir(stacks, keep_paths)
 
     # Ensure required columns exist
     required = {"Folder", "OB1", "OB2"}
     if not required.issubset(set(weights_df.columns)):
-        return keep_dir(stacks, keep_paths)
+        return _keep_dir(stacks, keep_paths)
 
     keep_names = {path.name for path in keep_paths}
     rows = weights_df[weights_df["Folder"].astype(str).isin(keep_names)]
@@ -237,7 +237,7 @@ def keep_key_weights(
     roots = {path.parent for path in keep_paths}
     ob_paths = [root / name for root in roots for name in ob_names]
 
-    return keep_dir(stacks, keep_paths + ob_paths)
+    return _keep_dir(stacks, keep_paths + ob_paths)
 
 
 def txt_timestamps(src_dir: Path, dst_dir: Path):

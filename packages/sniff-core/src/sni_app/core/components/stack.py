@@ -37,15 +37,15 @@ from astropy.io import fits
 
 from sni_app.core.io.image import (
     ALLOWED_EXTENSIONS,
-    FITS_EXTENSIONS,
-    TIFF_EXTENSIONS,
-    get_img,
-    get_imgs_parallel,
-    write_img,
+    _FITS_EXTENSIONS,
+    _TIFF_EXTENSIONS,
+    _get_img,
+    _get_imgs_parallel,
+    _write_img,
 )
 from sni_app.core.io.stack import (
     list_stack_frames,
-    log,
+    _log,
     scan_experiment_txts,
 )
 from sni_app.core.util.run_stats import frame_wavelengths
@@ -104,7 +104,7 @@ class Stack:
         #Frames are read in order into a pre-allocated
         #float32 array, sized from the first frame's shape.
         stack_meta: dict = {}
-        for idx, (img, img_info) in enumerate(get_imgs_parallel(frames), 1):
+        for idx, (img, img_info) in enumerate(_get_imgs_parallel(frames), 1):
             if progress_callback is not None:
                 progress_callback(idx, len(frames))
             if expected_shape is None:
@@ -121,7 +121,7 @@ class Stack:
             stack_meta["wavelengths"] = wavelengths
         if n_read < len(frames):  # skip images not matching shape of first image.
             data = data[:n_read].copy() if data is not None else None
-        log.debug(
+        _log.debug(
             f"Stack at {folder_path} has shape {data.shape if data is not None else 'NULL'}"
         )
 
@@ -129,7 +129,7 @@ class Stack:
         run_meta = scan_experiment_txts(Path(folder_path))
         if run_meta:
             stack_meta["run_meta"] = run_meta
-            log.debug(f"Found overlap-correction data at {folder_path}") # multiple uses but simplified for new users
+            _log.debug(f"Found overlap-correction data at {folder_path}") # multiple uses but simplified for new users
             spectra = run_meta.get("spectra")
             if (
                 spectra is not None
@@ -180,7 +180,7 @@ class Stack:
             image_paths = sorted(image_paths)
         datas = []
         headers = []
-        for data, header in get_imgs_parallel(image_paths):
+        for data, header in _get_imgs_parallel(image_paths):
             datas.append(data)
             headers.append(header)
         return cls(
@@ -205,7 +205,7 @@ class Stack:
         Stack
              Populated by TIFF content.
         """
-        data, header = get_img(image_path)
+        data, header = _get_img(image_path)
         return cls(
             data=data,
             headers=[header.copy() for _ in range(data.shape[0])],
@@ -293,18 +293,18 @@ class Stack:
             for wavelength, header in zip(self.stack_meta["wavelengths"], headers):
                 header["wlength"] = wavelength # allows reimport of wavelengths into other workflows
         n_slices = int(self.data.shape[0])
-        if extension in FITS_EXTENSIONS:
+        if extension in _FITS_EXTENSIONS:
             pad = max(4, len(str(max(0, n_slices - 1))))
             for i in range(n_slices):
                 frame_name = f"{stem}_{i:0{pad}d}" # pads with zeroes (min 4 digits for readability)
-                write_img(
+                _write_img(
                     (self.data[i], headers[i]),
                     frame_name,
                     save_dir,
                     overwrite,
                     extension,
                 )
-        elif extension in TIFF_EXTENSIONS:
+        elif extension in _TIFF_EXTENSIONS:
             data = self.data
             if data.ndim == 2:
                 data = data[None, :, :]
@@ -381,8 +381,8 @@ class Stack:
         )  # leave the stack's own headers be
         for hdr in (he_hdr, le_hdr):
             hdr["HISTORY"] = f"Image saved: {datetime.datetime.now()}"
-        write_img((he_avg, he_hdr), file_name_he, base_dir=path_he, overwrite=overwrite)
-        write_img((le_avg, le_hdr), file_name_le, base_dir=path_le, overwrite=overwrite)
+        _write_img((he_avg, he_hdr), file_name_he, base_dir=path_he, overwrite=overwrite)
+        _write_img((le_avg, le_hdr), file_name_le, base_dir=path_le, overwrite=overwrite)
 
     ############
     # METADATA #

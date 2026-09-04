@@ -18,7 +18,7 @@ from sni_app.core.components.workflow import (
     replay_workflow,
     PROCESS_REGISTRY,
 )
-from sni_app.core.io.stack import safe_file_stem
+from sni_app.core.io.stack import _safe_file_stem
 from sni_app.core.io.workflow import load_workflow, save_workflow
 from sni_app.gui.panels.stack_store import StackStore
 from sni_app.gui.shared import hbox, label, popup, vbox
@@ -166,7 +166,7 @@ class FullProcessingTab(QtWidgets.QWidget):
 
     def _on_export_requested(self, graph: WorkflowGraph) -> None:
         """Prompt for a destination and write workflow."""
-        suggested = safe_file_stem(graph.name or "workflow") + ".json"
+        suggested = _safe_file_stem(graph.name or "workflow") + ".json"
         path, _ = QtWidgets.QFileDialog.getSaveFileName(
             self,
             "Export Workflow",
