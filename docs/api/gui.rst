@@ -3,9 +3,9 @@ sniff-gui API
 
 .. currentmodule:: sni_app.gui
 
-The PyQt6 desktop application. The installed ``sniff`` console script is a thin
-wrapper around :func:`main`; the classes below are documented mainly for people
-extending the interface rather than for downstream use.
+SNIFF's PyQt6 GUI application. The installed ``sniff`` console script wraps :func:`main`.
+The primary use for the GUI is entirely graphical interaction; the classes below are documented mainly for developers
+wishing to extend the interface, rather than for everyday use.
 
 Entry point
 -----------
@@ -25,30 +25,38 @@ Tabs
    :nosignatures:
 
    ProcessingTab
-   PreProcessingPanel
    FullProcessingTab
    AnalysisTab
    SimulationTab
-   WorkflowView
-   ComputePanel
-   RoiToolsPanel
-   StackLoader
-   FunctionRunner
 
-Panels and widgets
-------------------
+Panels
+------
 
 .. autosummary::
    :toctree: generated/
    :nosignatures:
 
-   ViewfinderTemplate
-   ImageWorkspace
-   StackStore
    StackListPanel
+   StatusPanel
+   ComputePanel
+   RoiToolsPanel
+   PreProcessingPanel
+
+Widgets
+-------
+
+.. autosummary::
+   :toctree: generated/
+   :nosignatures:
+
+   StackLoader
+   StackStore
    StackItem
    ExportBox
-   StatusPanel
+   ViewfinderTemplate
+   ImageWorkspace
+   WorkflowView
+   FunctionRunner
 
 Stitching
 ---------
@@ -60,8 +68,8 @@ Stitching
    StitcherDialog
    stitch_stacks
 
-Background work
----------------
+Workers
+-------
 
 .. autosummary::
    :toctree: generated/
