@@ -47,7 +47,9 @@ from sni_app.core.process.roi_processes import (
 FIELD_MIN_WIDTH = 84
 
 
-def parse_float_list(text: str, caption: str) -> List[float]:
+def parse_float_list(
+    text: str, caption: str
+) -> List[float]:
     """
     Read a comma-separated list of numbers out of a text field.
 
@@ -84,6 +86,8 @@ def parse_str_list(text: str, caption: str) -> List[str]:
         Field contents, e.g. "C3H4O3, C4H6O3".
     caption : str
         The field's label, used in the error message.
+    extra_separators : str
+        Characters accepted in place of a comma, one per character.
 
     Returns
     -------
@@ -94,7 +98,9 @@ def parse_str_list(text: str, caption: str) -> List[str]:
     ValueError
         If the field holds nothing.
     """
-    values = [part.strip() for part in text.replace(";", ",").split(",")]
+    for separator in ";:": #ratio seperator alternatives
+        text = text.replace(separator, ",")
+    values = [part.strip() for part in text.split(",")]
     values = [part for part in values if part]
     if not values:
         raise ValueError(f"{caption} must not be empty.")
@@ -399,7 +405,7 @@ class ComputePanel(JobRunnerMixin, QtWidgets.QWidget):
 
         ratio = self._row(form, "ratio", "Ratio", QtWidgets.QLineEdit("1"))
         ratio.setToolTip(
-            "Mixture ratio."
+            "Mixture ratio, e.g. \"1, 2\" or \"1:2\"."
         )
 
         self._row(form, "by_volume", "Ratio by volume", QtWidgets.QCheckBox()).setToolTip(
@@ -518,7 +524,9 @@ class ComputePanel(JobRunnerMixin, QtWidgets.QWidget):
         stack, holder = self._matched_stacks()
         compounds = parse_str_list(self._widgets["compounds"].text(), "Compounds")
         densities = parse_float_list(self._widgets["densities"].text(), "Densities")
-        ratio = parse_float_list(self._widgets["ratio"].text(), "Ratio")
+        ratio = parse_float_list(
+            self._widgets["ratio"].text(), "Ratio"
+        )
         if not (len(compounds) == len(densities) == len(ratio)):
             raise ValueError(
                 f"Compounds ({len(compounds)}), densities ({len(densities)}) and "
