@@ -102,10 +102,11 @@ class StitcherDialog(QtWidgets.QDialog):
         self.collimation_distance = collimation_distance
 
         self.roi_xywh: tuple[int, int, int, int] = clamp_roi_to_stack(
-            (0, 0, 100, 100), short
+            clamp_roi_to_stack((0, 0, 100, 100), short), long
         )
         self._current_frame = {"short": 0, "long": 0}
         self._updating_spins = False
+        self._mirroring_roi = False
         self.views: Dict[str, Dict[str, object]] = {}
 
         self.setWindowTitle("Stack Stitcher (Short + Long)")
@@ -168,23 +169,18 @@ class StitcherDialog(QtWidgets.QDialog):
         view_box.addItem(img)
         col.addWidget(glw, stretch=1)
 
-        # right hand ROI is only updated via sync button.
+        # both ROIs are draggable
         x0, y0, w, h = self.roi_xywh
         roi = pg.RectROI(
             pos=[x0, y0],
             size=[w, h],
             pen=pg.mkPen(roi_colour, width=2),
             hoverPen=pg.mkPen(roi_colour, width=3),
-            movable=(view == "short"),
         )
-        if view == "short":
-            roi.addScaleHandle([1, 0.5], [0, 0.5])
-            roi.addScaleHandle([0, 0.5], [1, 0.5])
-            roi.addScaleHandle([0.5, 0], [0.5, 1])
-            roi.addScaleHandle([0.5, 1], [0.5, 0])
-        else:  # long ROI
-            while roi.handles:
-                roi.removeHandle(0)  # no ROI handles for you >:)
+        roi.addScaleHandle([1, 0.5], [0, 0.5])
+        roi.addScaleHandle([0, 0.5], [1, 0.5])
+        roi.addScaleHandle([0.5, 0], [0.5, 1])
+        roi.addScaleHandle([0.5, 1], [0.5, 0])
         view_box.addItem(roi)
 
         roi_text = pg.TextItem("ROI", color=roi_colour, anchor=(0, 1))
@@ -230,7 +226,7 @@ class StitcherDialog(QtWidgets.QDialog):
         return row
 
     def _build_controls_row(self) -> QtWidgets.QHBoxLayout:
-        """Build the frame-range spin boxes plus the sync/recompute buttons."""
+        """Build the frame-range spin boxes plus the recompute button."""
         row = QtWidgets.QHBoxLayout()
 
         short_box = QtWidgets.QGroupBox("Short range [short_lower:short_upper)")
@@ -253,9 +249,7 @@ class StitcherDialog(QtWidgets.QDialog):
         long_layout.addWidget(self.long_upper)
         row.addWidget(long_box)
 
-        self.roi_sync_btn = QtWidgets.QPushButton("Sync ROI to Long")
         self.recalc_btn = QtWidgets.QPushButton("Recompute Profiles")
-        row.addWidget(self.roi_sync_btn)
         row.addWidget(self.recalc_btn)
         row.addStretch()
         return row
@@ -352,7 +346,6 @@ class StitcherDialog(QtWidgets.QDialog):
     def _connect_signals(self) -> None:
         """Wire buttons, spin boxes, the ROI and per-view controls to their handlers."""
         self.recalc_btn.clicked.connect(self.recompute)
-        self.roi_sync_btn.clicked.connect(self.sync_roi)
         self.finish_btn.clicked.connect(self._on_finish)
         self.cancel_btn.clicked.connect(self.reject)
 
@@ -364,10 +357,11 @@ class StitcherDialog(QtWidgets.QDialog):
         ):
             sp.valueChanged.connect(self.recompute)
 
-        self.views["short"]["roi"].sigRegionChanged.connect(self._on_roi_moved)
-
         for view in ("short", "long"):
             v = self.views[view]
+            v["roi"].sigRegionChanged.connect(
+                lambda _roi=None, k=view: self._on_roi_moved(k)
+            )
             v["auto_btn"].clicked.connect(lambda _=False, k=view: self.auto_contrast(k))
             v["min_spin"].valueChanged.connect(
                 lambda _v, k=view: self._apply_display_controls(k)
@@ -431,27 +425,62 @@ class StitcherDialog(QtWidgets.QDialog):
         h = max(1, int(round(size.y())))
         return clamp_roi_to_stack((x0, y0, w, h), stack)
 
-    def _current_roi_xywh(self) -> Tuple[int, int, int, int]:
-        """Return (and store) the short-view ROI as a clamped (x, y, w, h) tuple."""
-        roi = self._roi_to_xywh(self.views["short"]["roi"], self.short)
-        self.roi_xywh = roi
-        return roi
+    def _current_roi_xywh(self, view: str) -> Tuple[int, int, int, int]:
+        """
+        Return a view's ROI as a clamped (x, y, w, h) tuple.
 
-    def _on_roi_moved(self) -> None:
-        """Reposition the ROI label and recompute profiles when the ROI is dragged."""
-        roi = self.views["short"]["roi"]
-        pos = roi.pos()
-        self.views["short"]["roi_text"].setPos(pos.x(), pos.y())
+        Parameters
+        ----------
+        view : str
+            View key ("short" / "long").
+
+        Returns
+        -------
+        Tuple[int, int, int, int]
+            The ROI clamped to that view's stack.
+        """
+        return self._roi_to_xywh(self.views[view]["roi"], getattr(self, view))
+
+    def _on_roi_moved(self, view: str) -> None:
+        """
+        Mirror a dragged ROI onto the other view and recompute the profiles.
+
+        Parameters
+        ----------
+        view : str
+            View key ("short" / "long") of the ROI that moved.
+        """
+        if self._mirroring_roi:
+            return
+        roi = self.views[view]["roi"]
+        self.roi_xywh = self._current_roi_xywh(view)
+        self.views[view]["roi_text"].setPos(roi.pos().x(), roi.pos().y())
+        self._mirror_roi("long" if view == "short" else "short", roi.pos(), roi.size())
         self.recompute()
 
-    def sync_roi(self) -> None:
-        """Copy the short-view ROI (clamped to the long stack) onto the long view."""
-        x0, y0, w, h = clamp_roi_to_stack(self._current_roi_xywh(), self.long)
-        long_roi = self.views["long"]["roi"]
-        long_roi.setPos([x0, y0], update=False)
-        long_roi.setSize([w, h])
-        self.views["long"]["roi_text"].setPos(x0, y0)
-        self.recompute()
+    def _mirror_roi(
+        self, view: str, pos: QtCore.QPointF, size: QtCore.QPointF
+    ) -> None:
+        """
+        Move a view's ROI onto the given rectangle, so both cover the same pixels.
+
+        Parameters
+        ----------
+        view : str
+            View key ("short" / "long") of the ROI to move.
+        pos, size : QtCore.QPointF
+            Position and size of the ROI that was dragged.
+        """
+        roi = self.views[view]["roi"]
+        self._mirroring_roi = True
+        try:
+            roi.blockSignals(True)
+            roi.setPos([pos.x(), pos.y()], update=False)
+            roi.setSize([size.x(), size.y()])
+            roi.blockSignals(False)
+        finally:
+            self._mirroring_roi = False
+        self.views[view]["roi_text"].setPos(pos.x(), pos.y())
 
     ################################
     # DISPLAY AND DISPLAY CONTROLS #
@@ -586,10 +615,8 @@ class StitcherDialog(QtWidgets.QDialog):
         if self._updating_spins:
             return
 
-        roi_short = self._current_roi_xywh()
-        roi_long = clamp_roi_to_stack(roi_short, self.long)
-        short_prof = roi_profile(roi_short, self.short)
-        long_prof = roi_profile(roi_long, self.long)
+        short_prof = roi_profile(self._current_roi_xywh("short"), self.short)
+        long_prof = roi_profile(self._current_roi_xywh("long"), self.long)
 
         s0, s1 = self._clamp_range(
             self.short_lower.value(), self.short_upper.value(), len(short_prof)
