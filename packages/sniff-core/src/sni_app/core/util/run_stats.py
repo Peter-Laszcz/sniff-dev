@@ -51,7 +51,7 @@ def extract_run_stats(dir: Path) -> dict[str, np.ndarray | None]:
     }
     for suffix in suffixes.keys():
         for file in dir.iterdir():
-            if file.is_file() and file.suffix.lower() == suffix:
+            if file.is_file() and file.name.lower().endswith(suffix):
                 suffixes[suffix] = file
                 break
 

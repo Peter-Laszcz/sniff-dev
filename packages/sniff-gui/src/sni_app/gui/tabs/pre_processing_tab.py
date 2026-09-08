@@ -318,13 +318,13 @@ class FunctionRunner(QtWidgets.QWidget):
 
         open_beam = self._widgets["open_beam"].currentData()
         ob_count = (
-            _first_shutter_count(open_beam.overlap_data())
+            _first_shutter_count(open_beam.run_meta_data())
             if open_beam is not None
             else None
         )
         experiment_count = None
         for stack in self._selected:
-            experiment_count = _first_shutter_count(stack.overlap_data())
+            experiment_count = _first_shutter_count(stack.run_meta_data())
             if experiment_count:
                 break
 
