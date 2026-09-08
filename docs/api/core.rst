@@ -87,6 +87,7 @@ I/O: Stack
    list_stack_frames
    scan_experiment_txts
    resolve_run_meta_array
+   summed_frame_index
    compute_shutter_indices
    export_stacks
 

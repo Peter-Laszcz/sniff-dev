@@ -58,7 +58,6 @@ from sni_app.core.io.image import (
     ALLOWED_EXTENSIONS,
     _FITS_EXTENSIONS,
     _TIFF_EXTENSIONS,
-    _get_img,
     _get_imgs_parallel,
     _write_img,
 )
@@ -67,7 +66,81 @@ from sni_app.core.io.stack import (
     _log,
     scan_experiment_txts,
 )
+from sni_app.core.process.img_processes import _frame_to_2d_float32
 from sni_app.core.util.run_stats import frame_wavelengths
+
+
+def summed_frame_index(data: np.ndarray, rtol: float = 1e-4) -> Optional[int]:
+    """
+    Index of the frame holding the sum of all the stack's other frames.
+
+    A summed image often accompanies the raw data, and skews profile plots,
+    making it undesirable in processing. Thus, it should be located and removed.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        Stack array.
+    rtol : float
+        Relative tolerance, to avoid rounding errors in summed frames.
+
+    Returns
+    -------
+    int | None
+        Index of the summed frame, or None where none exists.
+    """
+    data = np.asarray(data)
+    if data.ndim != 3 or data.shape[0] < 3:
+        return None
+    frame_totals = np.nansum(data, axis=(1, 2), dtype=np.float64)
+    grand_total = float(frame_totals.sum())
+    if not np.isfinite(grand_total) or grand_total <= 0:
+        return None
+    half = grand_total / 2.0
+    candidates = np.flatnonzero(np.abs(frame_totals - half) <= rtol * half)
+    if candidates.size == 0:
+        return None
+
+    stack_total = np.nansum(data, axis=0, dtype=np.float64)
+    for index in candidates:
+        others = stack_total - data[index]
+        scale = float(max(np.abs(others).max(), np.abs(data[index]).max()))
+        if scale > 0 and float(np.abs(data[index] - others).max()) <= rtol * scale:
+            _log.debug(f"Frame {index} of {data.shape[0]} sums the other frames")
+            return int(index)
+    return None
+
+
+def _spectra_implied_summed_frame(
+    n_frames: int, run_meta: Optional[dict]
+) -> Optional[int]:
+    """
+    Index of a trailing summed image implied by the length of the spectra table.
+
+    Corroboration of last resort, for stacks whose summed image cannot be
+    recognised by summed_frame_index because it is not a faithful sum: 16-bit
+    acquisition counters wrap once the summed counts pass 65535, which leaves
+    the frame in the folder but corrupt.
+
+    Parameters
+    ----------
+    n_frames : int
+        Number of frames read from the folder.
+    run_meta : dict or None
+        The folder's experiment metadata arrays, as scanned from its text files.
+
+    Returns
+    -------
+    int | None
+        Index of the last frame when the spectra table accounts for every frame
+        but that one, else None.
+    """
+    spectra = (run_meta or {}).get("spectra")
+    if spectra is None:
+        return None
+    if n_frames == np.asarray(spectra).shape[0] + 1:
+        return n_frames - 1
+    return None
 
 
 @dataclass
@@ -135,9 +208,6 @@ class Stack:
                 data[n_read] = img
             headers.append(img_info)
             n_read += 1
-        wavelengths = [hdr["wlength"] for hdr in headers if "wlength" in hdr] # abbreviated for FITS header standards
-        if wavelengths and len(wavelengths) == n_read:
-            stack_meta["wavelengths"] = wavelengths
         if n_read < len(frames):  # skip images not matching shape of first image.
             data = data[:n_read].copy() if data is not None else None
         _log.debug(
@@ -149,18 +219,24 @@ class Stack:
         if run_meta:
             stack_meta["run_meta"] = run_meta
             _log.debug(f"Found overlap-correction data at {folder_path}") # multiple uses but simplified for new users
-            spectra = run_meta.get("spectra")
-            if (
-                spectra is not None
-                and data is not None
-                and data.shape[0] == spectra.shape[0] + 1
-            ):
-                data = data[
-                    :-1
-                ]  # Drop summed image if existence is corroborated by spectra shape
-                headers = headers[
-                    :-1
-                ]
+
+        # A summed image belongs to no frame of the series, so it is dropped.
+        if data is not None and data.shape[0]:
+            summed = summed_frame_index(data)
+            if summed is None:
+                summed = _spectra_implied_summed_frame(data.shape[0], run_meta)
+            if summed is not None:
+                _log.debug(f"Dropping summed image (frame {summed}) of {folder_path}")
+                data = (
+                    data[:-1]
+                    if summed == data.shape[0] - 1
+                    else np.delete(data, summed, axis=0)
+                )
+                headers = headers[:summed] + headers[summed + 1 :]
+
+        wavelengths = [hdr["wlength"] for hdr in headers if "wlength" in hdr] # abbreviated for FITS header standards
+        if wavelengths and len(wavelengths) == len(headers):
+            stack_meta["wavelengths"] = wavelengths
 
         return cls(
             data=data if data is not None else np.empty(len(frames), dtype=np.float32),
@@ -222,12 +298,33 @@ class Stack:
         Returns
         -------
         Stack
-             Populated by TIFF content.
+             Populated by TIFF content, one frame per page.
+
+        Raises
+        ------
+        ValueError
+            If the file does not read as a frame series.
         """
-        data, header = _get_img(image_path)
+        # Read here rather than through _get_img, which reduces what it reads to
+        # one 2D image: every page of this file is a frame of the stack.
+        data = np.asarray(tifffile.imread(str(image_path)))
+        if data.ndim == 2:  # a lone page
+            data = data[None, :, :]
+        elif data.ndim == 4:  # colour pages, greyscaled one by one
+            data = np.stack([_frame_to_2d_float32(page) for page in data])
+        elif data.ndim == 3 and data.shape[-1] in (3, 4):
+            # A lone colour image: TIFF cannot tell that shape apart from a
+            # series by shape alone, and a 3-pixel-wide series is not a stack.
+            data = _frame_to_2d_float32(data)[None, :, :]
+        if data.ndim != 3:
+            raise ValueError(
+                f"{Path(image_path).name} does not hold a frame series "
+                f"(read as shape {data.shape})."
+            )
+        data = data.astype(np.float32, copy=False)
         return cls(
             data=data,
-            headers=[header.copy() for _ in range(data.shape[0])],
+            headers=[fits.Header() for _ in range(data.shape[0])],
             stack_meta=(meta or {}),
             path=None,
         )
@@ -538,7 +635,9 @@ class Stack:
         """
         if not results:
             return
-        self._meta()["analysis_results"] = self._meta()["analysis_results"] & dict(results)
+        merged = self.analysis_results()
+        merged.update(dict(results))
+        self._meta()["analysis_results"] = merged
 
     def analysis_results(self) -> dict:
         """

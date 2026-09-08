@@ -25,7 +25,7 @@ Internal helpers need to be explicitly listed by their private name for import,
 but the core functionality shouldn't necessitate this.
 """
 
-from sni_app.core.components.stack import Stack, record_derivation
+from sni_app.core.components.stack import Stack, record_derivation, summed_frame_index
 from sni_app.core.components.workflow import (
     PROCESS_REGISTRY,
     ProcessSpec,
@@ -107,6 +107,7 @@ __all__ = [
     "Stack",
     "ALLOWED_EXTENSIONS",
     "record_derivation",
+    "summed_frame_index",
     "discover_and_load",
     "discover_stack_dirs",
     "list_stack_frames",
