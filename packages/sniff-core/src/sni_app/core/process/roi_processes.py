@@ -211,12 +211,12 @@ def roi_to_mask(frame: np.ndarray, roi: Tuple[int, int, int, int]) -> np.ndarray
     Returns
     -------
     np.ndarray
-        Boolean mask representing ROI pixels.
+        The frame's values at the ROI's pixels, flattened.
     """
     x, y, w, h = roi
     i_h, i_w = frame.shape
     mask = np.zeros((i_h, i_w), dtype=bool)
-    mask[y : y + h, x : x + h] = True
+    mask[y : y + h, x : x + w] = True
     vals = np.asarray(frame, dtype=np.float32)[mask]
     return vals
 

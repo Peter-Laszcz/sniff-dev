@@ -25,3 +25,5 @@ docs/_build/
 
 # Sphinx autosummary output
 docs/api/generated/
+/sniff.spec
+/instructions.txt

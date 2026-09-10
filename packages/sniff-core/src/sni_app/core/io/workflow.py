@@ -148,7 +148,7 @@ def _workflow_from_dict(payload: dict) -> WorkflowGraph:
     for raw in raw_nodes:
         if not isinstance(raw, dict):
             raise ValueError("Workflow file contains a malformed node entry.")
-        nid = raw.get("id")
+        nid = raw.get("uuid")
         if not isinstance(nid, str) or not nid:
             raise ValueError("Workflow file contains a node with no id.")
         params = {
