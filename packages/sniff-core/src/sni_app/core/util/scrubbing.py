@@ -36,6 +36,30 @@ if TYPE_CHECKING:  # Stack sits above this module; annotation only
 _WEIGHTS_COLUMNS = ["Folder", "w1", "w2", "OB1", "OB2"]
 """Columns of the weights table _weighting_func returns."""
 
+TIMESTAMPS_FILE = "timestamps.txt"
+
+
+_FOLDER_COLUMNS = ("folder", "subfolder", "directory", "dir", "name")
+"""Column names accepted for the acquisition folder, normalised."""
+
+_MODIFICATION_COLUMNS = ( #TODO: is there a better way to generalise?
+    "modification (s)",
+    "modification",
+    "modification time",
+    "modified",
+    "time (s)",
+    "time",
+)
+"""Column names accepted for the modification time, normalised."""
+
+_READ_ATTEMPTS = (
+    {"sep": None, "engine": "python"},
+    {"sep": ","},
+    {"sep": "\t"},
+    {"sep": r"\s+", "engine": "python"},
+)
+"""How a timestamps table is parsed, in order, until one yields the columns."""
+
 
 def _find_nearest_lower_value(key, sorted_list):
     """
@@ -126,8 +150,95 @@ def _ob_folder_names(ob_folders: Optional[Union[str, Path, Iterable]]) -> List[s
     return [folder.name for folder in _as_path_list(ob_folders)]
 
 
+def _canonical_timestamps(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Reduce timestamp dataframe to desired data, i.e. folder & modification time.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Timestamps table
+
+    Returns
+    -------
+    pandas.DataFrame
+        Reduced dataframe.
+
+    Raises
+    ------
+    ValueError
+        If either column is missing, or no row carries a usable time.
+    """
+    found: dict = {}
+    for column in df.columns:
+        key = " ".join(str(column).split()).lower()
+        for canonical, accepted in (
+            ("Folder", _FOLDER_COLUMNS),
+            ("Modification (s)", _MODIFICATION_COLUMNS),
+        ):
+            if key in accepted and canonical not in found:
+                found[canonical] = column
+
+    missing = [name for name in ("Folder", "Modification (s)") if name not in found]
+    if missing:
+        raise ValueError(f"no {' or '.join(missing)} column (found {list(df.columns)})")
+
+    table = df.rename(columns={column: name for name, column in found.items()})
+    table["Folder"] = table["Folder"].astype(str).str.strip()
+    table["Modification (s)"] = pd.to_numeric(
+        table["Modification (s)"], errors="coerce"
+    )
+    table = table.dropna(subset=["Modification (s)"])
+    if table.empty:
+        raise ValueError("no row contains modification time")
+    table = table.drop_duplicates(subset="Folder", keep="last")
+    return table.sort_values(by="Modification (s)").reset_index(drop=True)
+
+
+def read_timestamps_table(timestamps: Union[str, Path]) -> pd.DataFrame:
+    """
+    Read a timestamps table from a text file or containing folder.
+
+
+    Parameters
+    ----------
+    timestamps : str or Path
+        The table file, or a folder containing a 'timestamps.txt'.
+
+    Returns
+    -------
+    pandas.DataFrame
+        The table.
+
+    Raises
+    ------
+    FileNotFoundError
+        If no table is at that path.
+    ValueError
+        If the file cannot be parsed into the two required columns.
+    """
+    source = Path(str(timestamps))
+    if source.is_dir():
+        source = source / TIMESTAMPS_FILE
+    if not source.is_file():
+        raise FileNotFoundError(f"No timestamps table at '{source}'.")
+
+    reason: Optional[Exception] = None
+    for attempt in _READ_ATTEMPTS:
+        try:
+            parsed = pd.read_csv(
+                source, skipinitialspace=True, keep_default_na=False, **attempt
+            )
+            return _canonical_timestamps(parsed)
+        except Exception as exc:
+            reason = reason or exc
+    raise ValueError(f"Could not read the timestamps table '{source}': {reason}")
+
+
 def _weighting_func(
-    src: Path, ob_folders: Optional[Union[str, Path, Iterable]] = None
+    src: Optional[Path] = None,
+    ob_folders: Optional[Union[str, Path, Iterable]] = None,
+    timestamps: Optional[Union[str, Path]] = None,
 ) -> pd.DataFrame:
     """
     Build the open-beam interpolation weights for every acquisition in a run.
@@ -137,33 +248,40 @@ def _weighting_func(
 
     Parameters
     ----------
-    src : Path
+    src : Path, optional
         Experiment directory containing the acquisition subfolders (and, ideally,
-        timestamps.txt).
+        timestamps.txt). Required unless timestamps is given.
     ob_folders : str, Path or iterable, optional
         The folder(s) to treat as open beams. When
         omitted, folders whose name contains "ob" are used.
+    timestamps : str or Path, optional
+        A timestamps table to read instead of src's own, as a file or as a
+        folder holding one. Given one, nothing is written to src.
 
     Returns
     -------
     pandas.DataFrame
         Columns ['Folder', 'w1', 'w2', 'OB1', 'OB2'], one row per folder in the
         run. Empty (with those columns) when no open-beam folders are present.
+
+    Raises
+    ------
+    ValueError
+        If neither src nor timestamps is given, or the table cannot be read.
     """
-    timestamps = os.path.join(src, "timestamps.txt")
-    if not os.path.exists(timestamps):
-        txt_timestamps(str(src), str(src))
-    df = (
-        pd.read_csv(timestamps)
-        .sort_values(by="Modification (s)")
-        .reset_index(drop=True)
-    )
+    if timestamps is None:
+        if src is None:
+            raise ValueError("Give either a run directory or a timestamps table.")
+        timestamps = os.path.join(src, TIMESTAMPS_FILE)
+        if not os.path.exists(timestamps):
+            txt_timestamps(str(src), str(src))
+    df = read_timestamps_table(timestamps)
 
     chosen = _ob_folder_names(ob_folders)
     if chosen:
         is_ob = df["Folder"].astype(str).isin(chosen)
     else:
-        is_ob = df["Folder"].str.contains("ob", case=False)
+        is_ob = df["Folder"].str.contains("ob", case=False, na=False)
     OB_df = df[is_ob]
 
     if OB_df.empty:
@@ -274,14 +392,9 @@ def txt_timestamps(src_dir: Path, dst_dir: Path):
     -------
     None
     """
-    txt_file = os.path.join(dst_dir, "timestamps.txt")
+    txt_file = os.path.join(dst_dir, TIMESTAMPS_FILE)
 
-    if not os.path.exists(txt_file):
-        Path(txt_file).touch()
-        with open(txt_file, "a") as f:
-            f.write(
-                "Folder,Modification (s),Creation (s),Formatted modification,Formatted creation\n"
-            )
+    write_header = not os.path.exists(txt_file) or os.path.getsize(txt_file) == 0
 
     subfolders = os.listdir(src_dir)
     subfolders.append(".")
@@ -326,5 +439,5 @@ def txt_timestamps(src_dir: Path, dst_dir: Path):
         ],
     )
 
-    with open(txt_file, "a") as f:
-        df.to_csv(f, header=False, index=False)
+    with open(txt_file, "a", newline="") as f:
+        df.to_csv(f, header=write_header, index=False)

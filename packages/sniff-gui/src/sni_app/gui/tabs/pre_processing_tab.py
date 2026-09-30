@@ -69,6 +69,7 @@ from sni_app.core.process.stack_processes import (
 from sni_app.core.util.run_stats import (
     _first_shutter_count,
 )
+from sni_app.core.util.scrubbing import _weighting_func
 
 
 def is_single_frame(stack: Stack) -> bool:
@@ -95,6 +96,7 @@ class FunctionRunner(QtWidgets.QWidget):
         self._stacks: List[tuple] = []  # Form: (name, Stack)
         self._selected: List[Stack] = []  # Stacks ticked for processing
         self._widgets: dict = {}  # Widgets with active parameters
+        self._bounded: dict = {}  # Data-sized sliders: key -> (bound, minimum)
         self._scale_edited = False  # Normalisation scale typed in by the user
         self._filling_scale = False  # guard, so autofill is not read as an edit
 
@@ -134,9 +136,9 @@ class FunctionRunner(QtWidgets.QWidget):
         """
         Update which stacks are ticked for processing.
 
-        Only parameters derived from the ticked stacks are refreshed (the normalisation
-        scale and the join ordering), so the panel's other fields survive a
-        change of selection.
+        Only parameters derived from the ticked stacks are refreshed (the slider
+        bounds, the normalisation scale and the join ordering), so the panel's
+        other fields survive a change of selection.
         """
         self._selected = list(selected)
         function = self.get_current_function()
@@ -144,6 +146,7 @@ class FunctionRunner(QtWidgets.QWidget):
             self._autofill_normalisation_scale()
         elif function == "Join Stacks":
             self._fill_join_order()
+        self._refresh_bounds()
 
     def set_run_enabled(self, enabled: bool, reason: str = "") -> None:
         """Enable/disable the Run button; show reason if disabled."""
@@ -152,13 +155,59 @@ class FunctionRunner(QtWidgets.QWidget):
 
     # ── Data-dependent slider bounds ──────────────────────────────────────────
 
+    def _bounding_stacks(self) -> List[Stack]:
+        """
+        The stacks the frame/width sliders are sized from.
+        """
+        if self._selected:
+            return list(self._selected)
+        return [stack for _, stack in self._stacks]
+
     def _min_frames(self) -> int:
-        """Number of slices in the smallest loaded stack (0 if none)."""
-        return min((int(s.data.shape[0]) for _, s in self._stacks), default=0)
+        """Number of slices in the smallest stack being processed (0 if none)."""
+        return min((int(s.data.shape[0]) for s in self._bounding_stacks()), default=0)
 
     def _min_half_width(self) -> int:
-        """Half the slice width of the smallest (narrowest) loaded stack."""
-        return min((int(s.data.shape[-1]) // 2 for _, s in self._stacks), default=0)
+        """Half the slice width of the narrowest stack being processed."""
+        return min(
+            (int(s.data.shape[-1]) // 2 for s in self._bounding_stacks()), default=0
+        )
+
+    _BOUNDS = {
+        "frames": lambda self: self._min_frames(),
+        "frame_index": lambda self: max(self._min_frames() - 1, 0),
+        "half_width": lambda self: self._min_half_width(),
+    }
+    """Upper bound of each kind of data-sized slider, by name."""
+
+    def _apply_bounds(self, key: str, reset: bool = False) -> None:
+        """
+        Re-range one registered slider against the stacks being processed.
+        """
+        widget = self._widgets.get(key)
+        if widget is None:
+            return
+        bound, minimum = self._bounded[key]
+        maximum = max(self._BOUNDS[bound](self), minimum)
+        is_range = isinstance(widget, QRangeSlider)
+
+        was_default = reset or widget.value() == (
+            (widget.minimum(), widget.maximum()) if is_range else widget.minimum()
+        )
+        widget.setRange(minimum, maximum)
+        if was_default:
+            widget.setValue((minimum, maximum) if is_range else minimum)
+        widget.setEnabled(maximum > minimum)
+        widget.setToolTip(
+            ""
+            if maximum > minimum
+            else "Tick the stack(s) to process."
+        )
+
+    def _refresh_bounds(self) -> None:
+        """Re-range every data-sized slider on the current parameter panel."""
+        for key in list(self._bounded):
+            self._apply_bounds(key)
 
     ###################
     # PARAMETER PANEL #
@@ -184,6 +233,7 @@ class FunctionRunner(QtWidgets.QWidget):
         """Rebuild the parameter panel by dispatching to the current function's builder."""
         self._clear_layout(self._panel_layout)
         self._widgets = {}
+        self._bounded = {}
         self._scale_edited = False  # the field the user typed into is gone
         builder = self._BUILDERS.get(
             self.get_current_function(), FunctionRunner._build_none
@@ -226,20 +276,28 @@ class FunctionRunner(QtWidgets.QWidget):
         if path:
             field.setText(path)
 
-    @staticmethod
-    def _make_range_slider(maximum: int) -> QRangeSlider:
-        """Return a horizontal [0, maximum] QRangeSlider spanning its full range."""
+    def _make_range_slider(self, key: str, bound: str) -> QRangeSlider:
+        """
+        Return a horizontal QRangeSlider, registered under key and sized by
+        bound, spanning its full range.
+        """
         rng = QRangeSlider(QtCore.Qt.Orientation.Horizontal)
-        rng.setRange(0, maximum)
-        rng.setValue((0, maximum))
+        self._widgets[key] = rng
+        self._bounded[key] = (bound, 0)
+        self._apply_bounds(key, reset=True)
         return rng
 
-    @staticmethod
-    def _make_labeled_slider(maximum: int) -> QLabeledSlider:
-        """Return a horizontal [0, maximum] QLabeledSlider starting at 0."""
+    def _make_labeled_slider(
+        self, key: str, bound: str, minimum: int = 0
+    ) -> QLabeledSlider:
+        """
+        Return a horizontal QLabeledSlider, registered under key and sized by
+        bound, starting at minimum.
+        """
         sld = QLabeledSlider(QtCore.Qt.Orientation.Horizontal)
-        sld.setRange(0, maximum)
-        sld.setValue(0)
+        self._widgets[key] = sld
+        self._bounded[key] = (bound, minimum)
+        self._apply_bounds(key, reset=True)
         return sld
 
     #####################
@@ -277,8 +335,10 @@ class FunctionRunner(QtWidgets.QWidget):
         self._widgets["open_beam"] = combo
         self._add_row("Open-beam stack", combo)
 
-        self._widgets["window_half"] = self._make_labeled_slider(self._min_half_width())
-        self._add_row("Normalisation window half-length", self._widgets["window_half"])
+        self._add_row(
+            "Normalisation window half-length",
+            self._make_labeled_slider("window_half", "half_width"),
+        )
         self._widgets["sum_neighbourhood"] = spin(0, 0, 1_000_000)
         self._add_row(
             "Frame neighbourhood for summation", self._widgets["sum_neighbourhood"]
@@ -346,7 +406,24 @@ class FunctionRunner(QtWidgets.QWidget):
     def _build_scrubbing(self) -> None:
         """
         Scrubbing Correction parameters.
+
+        The open-beam weights come from the timestamps table of the folder the
+        stacks were loaded from. Browsing to a table overrides that, which is
+        what a run whose table was written (or kept) somewhere else needs.
         """
+        internal = sum(
+            1
+            for _, stack in self._stacks
+            if (getattr(stack, "stack_meta", None) or {}).get("weights_data_frame")
+            is not None
+        )
+        self._add_note(
+            f"Interpolation weights loaded for {internal} stacks. Browse to override. "
+            if internal
+            else "No weights found in the loaded stacks' folder. Browse to a table."
+        )
+        self._file_row("timestamps", "timestamps.txt")
+
         combo = QtWidgets.QComboBox()
         combo.addItem("(interpolate from weights table)", None)
         for name, stack in self._stacks:
@@ -403,23 +480,32 @@ class FunctionRunner(QtWidgets.QWidget):
 
     def _build_slicer(self) -> None:
         """Stack Slicer parameters: a range slider with a live readout."""
-        n = self._min_frames()
-        rng = self._make_range_slider(n)
-        self._widgets["range"] = rng
-        readout = label(f"start 0  :  stop {n}", "font-size: 10px; color: #444;")
+        rng = self._make_range_slider("range", "frames")
+        start, stop = rng.value()
+        readout = label(
+            f"start {start}  →  stop {stop}", "font-size: 10px; color: #444;"
+        )
+        # Connected after the slider is built, so the readout also follows the
+        # re-ranging that a change of selection triggers.
         rng.valueChanged.connect(
             lambda v: readout.setText(f"start {v[0]}  →  stop {v[1]}")
         )
         self._add_row("Slice range (start : stop)", rng)
         self._panel_layout.addWidget(readout)
+        if not self._min_frames():
+            self._add_note("Tick the stack(s) to slice to set the frame range.")
 
     def _build_bin_frames(self) -> None:
         """Bin Stack Frames parameters: bin factor, start image, optional High/Low energy ranges."""
-        n = self._min_frames()
-        self._widgets["bin_factor"] = self._make_labeled_slider(n)
-        self._add_row("Binning factor", self._widgets["bin_factor"])
-        self._widgets["start_img"] = self._make_labeled_slider(n)
-        self._add_row("Index of starting image", self._widgets["start_img"])
+        # A bin factor counts frames, so it starts at one: binning by zero
+        # frames is no process at all.
+        self._add_row(
+            "Binning factor", self._make_labeled_slider("bin_factor", "frames", 1)
+        )
+        self._add_row(
+            "Index of starting image",
+            self._make_labeled_slider("start_img", "frame_index"),
+        )
 
         chk = QtWidgets.QCheckBox("Separate HE / LE energies (he_le)")
         self._widgets["he_le"] = chk
@@ -432,12 +518,13 @@ class FunctionRunner(QtWidgets.QWidget):
             ("he_range", "High-energy range"),
             ("le_range", "Low-energy range"),
         ):
-            self._widgets[key] = self._make_range_slider(n)
             he_layout.addWidget(label(caption, "font-size: 11px; color: #444;"))
-            he_layout.addWidget(self._widgets[key])
+            he_layout.addWidget(self._make_range_slider(key, "frames"))
         he_box.setVisible(False)
         chk.toggled.connect(he_box.setVisible)
         self._panel_layout.addWidget(he_box)
+        if not self._min_frames():
+            self._add_note("Tick the stack(s) to bin to set the frame ranges.")
 
     def _build_join(self) -> None:
         """
@@ -551,8 +638,8 @@ class FunctionRunner(QtWidgets.QWidget):
         self._widgets["delay"] = dspin(0, 0.0, 1e9, 6)
         self._add_row("Short stack", short_combo)
         self._add_row("Long stack", long_combo)
-        self._add_row("Acquisition delay", self._widgets["delay"])
-        self._add_row("Collimation distance", self._widgets["collimation_distance"])
+        self._add_row("Acquisition delay (s)", self._widgets["delay"])
+        self._add_row("Collimation distance (m)", self._widgets["collimation_distance"])
 
     def stitch_inputs(self) -> tuple:
         """Return the (short, long) Stacks chosen in the stitching drop-downs."""
@@ -625,11 +712,20 @@ class FunctionRunner(QtWidgets.QWidget):
     def _job_scrubbing(self, selected: List[Stack]):
         combo = self._widgets.get("open_beam_dir")
         open_beam_dir = combo.currentData() if combo is not None else None
-        weights = selected[0].stack_meta.get("weights_data_frame") if selected else None
+        field = self._widgets.get("timestamps")
+        table = field.text().strip() if field is not None else ""
+
+        if table:
+            weights = _weighting_func(timestamps=table)
+        else:
+            weights = (
+                selected[0].stack_meta.get("weights_data_frame") if selected else None
+            )
         if weights is None and not open_beam_dir:
             raise ValueError(
                 "No weights dataframe on the selected stack : load its "
-                "folder via 'Load Stacks' first, or pick an open-beam folder."
+                "folder via 'Load Stacks' first, browse to its timestamps "
+                "table, or pick an open-beam folder."
             )
         return lambda p: stack_scrubbing(selected, weights, open_beam_dir=open_beam_dir)
 

@@ -34,6 +34,7 @@ from sni_app.core import (
     energy_grid,
     log_dir,
     process_compound,
+    read_timestamps_table,
     setup_logger,
     txt_timestamps,
     wavelengths,
@@ -134,6 +135,121 @@ class TestTimestamps:
         ]
         assert table["Modification (s)"].gt(0).all()
 
+    def test_no_blank_lines_between_records(self, tmp_path):
+        """The writer ends its own lines; the text layer must not do it again."""
+        write_fits_folder(tmp_path / "sample_1", make_frames(1, seed=520))
+
+        txt_timestamps(tmp_path, tmp_path)
+
+        lines = (tmp_path / "timestamps.txt").read_text().splitlines()
+        assert "" not in lines
+
+    def test_header_written_into_an_empty_file(self, tmp_path):
+        """A file left empty by an interrupted run is still given its header."""
+        write_fits_folder(tmp_path / "sample_1", make_frames(1, seed=521))
+        (tmp_path / "timestamps.txt").touch()
+
+        txt_timestamps(tmp_path, tmp_path)
+
+        assert "sample_1" in set(read_timestamps_table(tmp_path)["Folder"])
+
+
+class TestReadTimestampsTable:
+    """Reading a timestamps table, whoever wrote it."""
+
+    ROWS = [("ob_1", 100.0), ("sample_1", 150.0), ("ob_2", 200.0)]
+
+    def write(self, path, header, sep):
+        """Write ROWS under header, separated by sep, and return path."""
+        lines = [sep.join(header)]
+        lines += [sep.join([folder, str(when)]) for folder, when in self.ROWS]
+        path.write_text("\n".join(lines) + "\n", newline="")
+        return path
+
+    @pytest.mark.parametrize("sep", [",", "\t", ";", "  "])
+    def test_separators(self, tmp_path, sep):
+        table = self.write(
+            tmp_path / "timestamps.txt", ["Folder", "Modification (s)"], sep
+        )
+
+        frame = read_timestamps_table(table)
+
+        assert list(frame["Folder"]) == [folder for folder, _ in self.ROWS]
+        assert list(frame["Modification (s)"]) == [when for _, when in self.ROWS]
+
+    @pytest.mark.parametrize(
+        "header",
+        [
+            [" folder ", " Modification Time "],
+            ["FOLDER", "mtime"],
+            ["Directory", "Modified"],
+        ],
+    )
+    def test_column_naming(self, tmp_path, header):
+        table = self.write(tmp_path / "timestamps.txt", header, ",")
+
+        assert list(read_timestamps_table(table)["Folder"]) == [
+            folder for folder, _ in self.ROWS
+        ]
+
+    def test_folder_stands_in_for_the_table_it_holds(self, tmp_path):
+        self.write(tmp_path / "timestamps.txt", ["Folder", "Modification (s)"], ",")
+
+        assert list(read_timestamps_table(tmp_path)["Folder"]) == [
+            folder for folder, _ in self.ROWS
+        ]
+
+    def test_rows_are_ordered_by_time(self, tmp_path):
+        table = self.write(
+            tmp_path / "timestamps.txt", ["Folder", "Modification (s)"], ","
+        )
+
+        assert list(read_timestamps_table(table)["Modification (s)"]) == sorted(
+            when for _, when in self.ROWS
+        )
+
+    def test_repeated_folder_keeps_the_newest(self, tmp_path):
+        """txt_timestamps appends, so a table built twice holds a folder twice."""
+        table = tmp_path / "timestamps.txt"
+        table.write_text(
+            "\n".join(["Folder,Modification (s)", "sample_1,100", "sample_1,300"]),
+            newline="",
+        )
+
+        frame = read_timestamps_table(table)
+
+        assert list(frame["Folder"]) == ["sample_1"]
+        assert list(frame["Modification (s)"]) == [300]
+
+    def test_folder_names_are_not_read_as_blanks(self, tmp_path):
+        table = tmp_path / "timestamps.txt"
+        table.write_text(
+            "\n".join(["Folder,Modification (s)", "NA,100", "null,200"]),
+            newline="",
+        )
+
+        assert list(read_timestamps_table(table)["Folder"]) == ["NA", "null"]
+
+    def test_missing_file(self, tmp_path):
+        with pytest.raises(FileNotFoundError, match="No timestamps table"):
+            read_timestamps_table(tmp_path / "timestamps.txt")
+
+    def test_unusable_table(self, tmp_path):
+        table = tmp_path / "timestamps.txt"
+        table.write_text("\n".join(["alpha,beta", "1,2"]), newline="")
+
+        with pytest.raises(ValueError, match="Modification"):
+            read_timestamps_table(table)
+
+    def test_generated_table_reads_back(self, tmp_path):
+        """What txt_timestamps writes is what read_timestamps_table expects."""
+        write_fits_folder(tmp_path / "sample_1", make_frames(1, seed=522))
+        write_fits_folder(tmp_path / "ob_1", make_frames(1, seed=523))
+
+        txt_timestamps(tmp_path, tmp_path)
+
+        assert set(read_timestamps_table(tmp_path)["Folder"]) >= {"sample_1", "ob_1"}
+
 
 class TestWeights:
     """Scrubbing Weights"""
@@ -157,6 +273,32 @@ class TestWeights:
 
         assert frame.empty
         assert list(frame.columns) == ["Folder", "w1", "w2", "OB1", "OB2"]
+
+    def test_timestamps_table_from_elsewhere(self, tmp_path):
+        """A table kept in a folder of its own still builds the weights."""
+        write_fits_folder(tmp_path / "ob_1", make_frames(1, seed=524))
+        write_fits_folder(tmp_path / "sample_1", make_frames(1, seed=525))
+        table = tmp_path / "elsewhere" / "timestamps.txt"
+        table.parent.mkdir()
+        table.write_text(
+            "\n".join(
+                [
+                    "Folder\tModification (s)",
+                    "ob_1\t100",
+                    "sample_1\t150",
+                    "ob_2\t200",
+                ]
+            ),
+            newline="",
+        )
+
+        frame = _weighting_func(tmp_path, timestamps=table)
+
+        assert not (tmp_path / "timestamps.txt").exists()  # nothing written to the run
+        row = frame[frame["Folder"] == "sample_1"].iloc[0]
+        assert (row["OB1"], row["OB2"]) == ("ob_1", "ob_2")
+        assert row["w1"] == pytest.approx(0.5)
+        assert row["w2"] == pytest.approx(0.5)
 
     def test_open_beam_folder_pointer(self, tmp_path):
         write_fits_folder(tmp_path / "flat_1", make_frames(1, seed=507))

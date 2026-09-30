@@ -36,6 +36,7 @@ import pandas as pd
 import psutil
 from astropy.io import fits
 
+from sni_app.core import frame_wavelengths
 from sni_app.core.components.stack import (
     Stack,
     record_derivation,
@@ -314,7 +315,15 @@ def stack_bin_frames(
     -------
     List[Stack]
         The binned (or energy-separated) stacks.
+
+    Raises
+    ------
+    ValueError
+        If bin_factor is invalid.
     """
+    if not he_le and int(bin_factor) < 1:
+        raise ValueError(f"Binning factor must be at least 1, got {bin_factor}.")
+
     out = []
     for stack in stacks:
         if he_le:
@@ -1120,9 +1129,9 @@ def stack_stitching(
         else None
     )
     meta = {
-        "spectra_times": (
-            times if times is not None and len(times) == len(data) else None
-        )
+        "spectra_times": times,
+        "wavelengths": frame_wavelengths(times, delay, collimation_distance)
+        if times else None
     }
 
     return record_derivation(

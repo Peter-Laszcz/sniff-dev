@@ -161,6 +161,10 @@ class TestBinning:
         with pytest.raises(ValueError, match="No complete bins"):
             stack_bin_frames([synthetic_stack], bin_factor=99, he_le=None)
 
+    @pytest.mark.parametrize("bin_factor", [0, -1])
+    def test_bin_factor_below_one_raises_error(self, synthetic_stack, bin_factor):
+        with pytest.raises(ValueError, match="at least 1"):
+            stack_bin_frames([synthetic_stack], bin_factor=bin_factor, he_le=None)
 
     def test_energy_split(self):
         stack = make_stack(n_frames=60, seed=74)

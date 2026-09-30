@@ -151,6 +151,7 @@ Utilities
    extract_run_stats
    frame_wavelengths
    txt_timestamps
+   read_timestamps_table
 
 Data Constants
 --------------

@@ -101,7 +101,7 @@ from sni_app.core.process.stack_processes import (
 )
 from sni_app.core.util.logger import default_log_file, log_dir, setup_logger
 from sni_app.core.util.run_stats import extract_run_stats, frame_wavelengths
-from sni_app.core.util.scrubbing import txt_timestamps
+from sni_app.core.util.scrubbing import read_timestamps_table, txt_timestamps
 
 __all__ = [
     "Stack",
@@ -177,5 +177,6 @@ __all__ = [
     "default_log_file",
     "extract_run_stats",
     "frame_wavelengths",
+    "read_timestamps_table",
     "txt_timestamps",
 ]
