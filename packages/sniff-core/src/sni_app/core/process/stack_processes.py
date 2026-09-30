@@ -36,7 +36,7 @@ import pandas as pd
 import psutil
 from astropy.io import fits
 
-from sni_app.core import frame_wavelengths
+from sni_app.core.util.run_stats import frame_wavelengths
 from sni_app.core.components.stack import (
     Stack,
     record_derivation,
@@ -1131,7 +1131,6 @@ def stack_stitching(
     meta = {
         "spectra_times": times,
         "wavelengths": frame_wavelengths(times, delay, collimation_distance)
-        if times else None
     }
 
     return record_derivation(

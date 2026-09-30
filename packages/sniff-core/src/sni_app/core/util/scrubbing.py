@@ -49,6 +49,7 @@ _MODIFICATION_COLUMNS = ( #TODO: is there a better way to generalise?
     "modified",
     "time (s)",
     "time",
+    "mtime"
 )
 """Column names accepted for the modification time, normalised."""
 

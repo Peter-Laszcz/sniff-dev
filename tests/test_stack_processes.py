@@ -307,7 +307,7 @@ class TestStitching:
         short = make_stack(n_frames=8, seed=83)
         long = make_stack(n_frames=8, seed=84)
 
-        out = stack_stitching(short, long, (0, 4), (0, 4))[0]
+        out = stack_stitching(short, long, (0, 4), (0, 4), 0.03683, 56.25)[0]
 
         assert out.data.shape[1:] == short.data.shape[1:]
         assert 0 < out.data.shape[0] <= 8

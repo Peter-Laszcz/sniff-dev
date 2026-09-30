@@ -112,11 +112,11 @@ def _first_shutter_count(
 
 
 def frame_wavelengths(
-    times: np.ndarray,
+    times: np.ndarray | None,
     delay: float,
     collimation_distance: float,
     apply_delay: bool = False,
-) -> np.ndarray:
+) -> np.ndarray | None:
     """
     Convert per-frame times of flight into wavelengths.
 
@@ -138,4 +138,6 @@ def frame_wavelengths(
     np.ndarray
         One wavelength per time.
     """
+    if times is None:
+        return None
     return (3956.0 / collimation_distance) * (times + (delay if apply_delay else 0.0))
