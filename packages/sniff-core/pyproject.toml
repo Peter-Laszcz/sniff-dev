@@ -18,7 +18,7 @@
 # They can be contacted via laszczpeter@gmail.com.
 
 [build-system]
-requires = ["setuptools>=69", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -27,12 +27,25 @@ version = "0.1.0"
 description = "SNIFF Core Library (Headless)."
 readme = "README.md"
 requires-python = ">=3.10"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
 authors = [
     { name = "Peter Laszcz" },
     { name = "Scott Young" },
     { name = "Eric Ricardo Carreon Ruiz" },
 ]
 
+
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Operating System :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Image Processing",
+]
 
 dependencies = [
     "numpy>=1.26",
@@ -56,6 +69,12 @@ docs = [
     "sphinx-rtd-theme>=2.0",
     "myst-parser>=2.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Peter-Laszcz/sniff-dev"
+Repository = "https://github.com/Peter-Laszcz/sniff-dev"
+Documentation = "https://peter-laszcz.github.io/sniff-dev/"
+Issues = "https://github.com/Peter-Laszcz/sniff-dev/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
