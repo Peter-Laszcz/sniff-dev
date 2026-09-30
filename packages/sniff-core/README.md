@@ -11,7 +11,14 @@ package.
 ## Installation
 
 ```console
-pip install -e .
+pip install sniff-core
+```
+
+To work on the library itself, clone the repository and install it in editable
+mode instead:
+
+```console
+pip install -e "packages/sniff-core[test]"
 ```
 
 ## Usage
